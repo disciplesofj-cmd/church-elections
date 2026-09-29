@@ -46,7 +46,7 @@
             </button>
         </section>
 
-        <!-- 관리자 대시보드 -->
+        <!-- 관리자 대시보드 (오직 지정된 관리자에게만 노출) -->
         <section id="admin-section" class="hidden mb-12 bg-white p-6 rounded-lg shadow-md border-t-4 border-red-500">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-gray-800">🛠 관리자 대시보드 (선거 통제 및 설정)</h2>
@@ -120,7 +120,7 @@
                     </form>
                 </div>
 
-                <!-- [신규 패널] 웹 화면에서 직접 선거 관리자(서기) 지정 및 관리 -->
+                <!-- 선거 관리자(서기) 웹 권한 지정 패널 -->
                 <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-200 shadow-sm col-span-1 md:col-span-2">
                     <h3 class="text-lg font-bold mb-2 text-indigo-950 flex items-center">
                         <span>🛡 선거 관리자(서기) 웹 권한 지정</span>
@@ -372,7 +372,7 @@
         let currentRoundNum = 1; 
         
         let isUserAdmin = false;
-        let adminUidsList = []; // 선거 관리자 UID 목록
+        let adminUidsList = []; 
         let isPublicShown = false;
         
         let currentPositionFilter = '전체';
@@ -511,7 +511,6 @@
             });
         }
 
-        // [신규] 웹 화면에서 선거 관리자(서기) 권한 부여 및 해제 함수
         window.toggleAdminPermission = async function(targetUid, targetName, makeAdmin) {
             const actionText = makeAdmin ? "선거 관리자(서기)로 지정" : "관리자 권한을 해제";
             if(!confirm(`[${targetName}] 님을 ${actionText}하시겠습니까?`)) return;
@@ -815,7 +814,7 @@
                 
                 if (isUserAdmin) {
                     const trAdmin = document.createElement('tr');
-                    trAdmin.className = isElected ? "bg-green-50 border-b border-green-100" : "hover:bg-gray-50 border-b border-green-100";
+                    trAdmin.className = isElected ? "bg-green-50 border-b border-green-100" : "hover:bg-gray-50 border-b border-gray-100";
                     trAdmin.innerHTML = `
                         <td class="py-3 px-4 text-sm text-gray-600">${candidate.position}</td>
                         <td class="py-3 px-4 text-sm font-bold text-gray-800">
@@ -998,7 +997,7 @@
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 const isActive = (projectorPositionFilter === pos);
-                btn.className = isActive ? "px-5 py-2.5 rounded-xl text-sm font-black bg-indigo-600 text-white shadow-lg transition" : "px-5 py-2.5 rounded-xl text-sm font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition border border-slate-700";
+                btn.className = isActive ? "px-5 py-2.5 rounded-xl text-sm font-black bg-indigo-600 text-white shadow-lg transition" : "px-5 py-2.5 rounded-xl text-sm font-bold bg-slate-800 text-slate-300 hover:text-slate-700 transition border border-slate-700";
                 btn.textContent = pos === '전체' ? '전체 보기' : `${pos} 명단`;
                 btn.addEventListener('click', () => { projectorPositionFilter = pos; renderCandidatesAndProjector(); });
                 projectorFilterTabs.appendChild(btn);
@@ -1154,7 +1153,7 @@
 
         function initMasterListener() {
             const masterDocRef = doc(db, 'elections', MASTER_ELECTION_ID);
-            onSnapshot(masterDocRef, (docSnap) => {
+            onSnapshot(masterDocRef, async (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     const newActiveId = data.currentRoundId || MASTER_ELECTION_ID;
@@ -1167,12 +1166,27 @@
                     targetPositionSelect.value = activeVotingTarget;
                     adminUidsList = data.adminUids || [];
                     
+                    // [핵심 보안] 만약 adminUids 목록이 비어있다면(최초 구동), 현재 로그인한 목사님을 자동으로 관리자에 포함시켜 잠금 방지
+                    if (adminUidsList.length === 0 && auth.currentUser) {
+                        adminUidsList = [auth.currentUser.uid];
+                        await updateDoc(masterDocRef, { adminUids: adminUidsList });
+                    }
+
+                    if (auth.currentUser) {
+                        isUserAdmin = adminUidsList.includes(auth.currentUser.uid);
+                        if (isUserAdmin) {
+                            adminSection.classList.remove('hidden');
+                        } else {
+                            adminSection.classList.add('hidden');
+                        }
+                    }
+
                     if (electionStatus === 'active' && activeVotingTarget !== '전체') {
                         currentPositionFilter = activeVotingTarget;
                     }
 
                     updateVoterScreenState();
-                    loadAdminManagementList(); // 권한 관리자 목록 갱신
+                    loadAdminManagementList();
                     
                     if(newActiveId !== globalActiveElectionId) globalActiveElectionId = newActiveId;
 
@@ -1186,7 +1200,16 @@
                         setupActiveElectionListeners(globalActiveElectionId, roundNum);
                     });
                 } else {
-                    setDoc(masterDocRef, { totalVoters: 0, currentRoundId: MASTER_ELECTION_ID, round: 1, status: 'ready', activeTarget: '전체', adminUids: [], showResultsToPublic: false });
+                    const initialAdmin = auth.currentUser ? [auth.currentUser.uid] : [];
+                    await setDoc(masterDocRef, { 
+                        totalVoters: 0, 
+                        currentRoundId: MASTER_ELECTION_ID, 
+                        round: 1, 
+                        status: 'ready', 
+                        activeTarget: '전체', 
+                        adminUids: initialAdmin, 
+                        showResultsToPublic: false 
+                    });
                     setupActiveElectionListeners(MASTER_ELECTION_ID, 1);
                 }
             });
@@ -1234,8 +1257,6 @@
             }
         });
 
-        // [방법 1 완성] 다른 앱의 users.role을 절대 건드리지 않고,
-        // 오직 선거 마스터 문서의 adminUids 배열에 포함된 UID만 선거 관리자로 독립 인증
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 loginBtn.classList.add('hidden');
@@ -1250,28 +1271,9 @@
                 }
                 userNameDisplay.textContent = `${userName} 님`;
 
-                // 마스터 문서에서 adminUids를 실시간 구독하기 위해 initMasterListener 호출 후 판단
-                initMasterListener();
-
-                // 마스터 문서 가져와서 관리자 여부 최종 판정
-                const masterDocSnap = await getDoc(doc(db, 'elections', MASTER_ELECTION_ID));
-                let admins = [];
-                if (masterDocSnap.exists()) {
-                    admins = masterDocSnap.data().adminUids || [];
-                }
-
-                // 최초 최초 접속자이거나 adminUids에 포함된 경우 관리자 권한 부여
-                // (최초 테스트를 위해 첫 로그인 계정도 자동으로 관리자에 포함되도록 유연하게 처리 가능)
-                isUserAdmin = admins.includes(user.uid) || admins.length === 0; 
-                
-                if (isUserAdmin) {
-                    adminSection.classList.remove('hidden');
-                } else {
-                    adminSection.classList.add('hidden');
-                }
-
                 voterSection.classList.remove('hidden');
                 loadRegistryMembers(); 
+                initMasterListener(); 
 
             } else {
                 loginSection.classList.add('hidden');
