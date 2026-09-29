@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>[TRI-A] 디지털 선거 플랫폼</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+        /* 스크롤바 및 레이아웃 안정화 스타일 적용 */
+        html { overflow-y: scroll; }
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f3f4f6; }
+    </style>
+</head>
+<body class="text-gray-800 antialiased min-h-screen flex flex-col">
+
+    <!-- 상단 네비게이션 바 -->
+    <header class="bg-blue-900 text-white shadow-md">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold tracking-wider">
+                <span class="text-red-400">T</span>RI-<span class="text-blue-300">A</span> 플랫폼
+            </h1>
+            <div id="auth-status-container" class="text-sm font-medium">
+                <button id="login-btn" class="bg-white text-blue-900 px-4 py-2 rounded shadow hover:bg-gray-100 transition duration-200">
+                    관리자 / 성도 로그인
+                </button>
+                <div id="user-info" class="hidden flex items-center space-x-4">
+                    <span id="user-name-display">성도님</span>
+                    <button id="logout-btn" class="bg-red-500 text-white px-3 py-1 rounded shadow hover:bg-red-600 transition duration-200">
+                        로그아웃
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 컨텐츠 영역 -->
+    <main class="flex-grow max-w-6xl mx-auto px-4 py-8 w-full">
+        
+        <!-- 로그인 화면 -->
+        <section id="login-section" class="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md border-t-4 border-blue-900">
+            <h2 class="text-xl font-bold text-center mb-6 text-gray-700">투표소 입장</h2>
+            <p class="text-sm text-gray-500 text-center mb-6">투표를 위해 로그인을 진행해 주십시오.</p>
+            <button onclick="window.location.href='login.html'" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-blue-900 hover:bg-blue-800 focus:outline-none">
+                통합 로그인 화면으로 이동
+            </button>
+        </section>
+
+        <!-- 관리자 대시보드 -->
+        <section id="admin-section" class="hidden mb-12 bg-white p-6 rounded-lg shadow-md border-t-4 border-red-500">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">🛠 관리자 대시보드 (선거 통제 및 설정)</h2>
+                <span class="px-3 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full">관리자 전용</span>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <!-- 1. 선거 직책 및 득표 조건 커스텀 설정 패널 -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-300 shadow-sm">
+                    <h3 class="text-lg font-bold mb-3 text-slate-800 flex items-center">
+                        <span>⚙️ 선거 직책 및 조건 설정</span>
+                    </h3>
+                    <form id="add-position-form" class="space-y-3 mb-4">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">직책 이름</label>
+                                <input type="text" id="new-pos-name" required placeholder="예: 장로, 회장" class="w-full px-3 py-2 border rounded-md text-sm bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">선출 정수 (명)</label>
+                                <input type="number" id="new-pos-quota" required min="1" value="1" class="w-full px-3 py-2 border rounded-md text-sm bg-white">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">당선 득표 조건</label>
+                            <select id="new-pos-condition" class="w-full px-3 py-2 border rounded-md text-sm bg-white font-bold text-indigo-900">
+                                <option value="two_thirds">전체 투표자 2/3 이상 득표</option>
+                                <option value="majority">전체 투표자 과반수 이상 득표 (50% 초과)</option>
+                                <option value="plurality">다득표순 우선 당선 (순위별)</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white py-2 px-4 rounded-md text-sm font-bold transition">
+                            + 선거 직책 추가하기
+                        </button>
+                    </form>
+
+                    <div class="bg-white p-3 rounded-lg border border-slate-200 max-h-36 overflow-y-auto">
+                        <p class="text-xs font-bold text-slate-600 mb-2">현재 설정된 선거 직책 목록:</p>
+                        <ul id="configured-positions-list" class="space-y-1.5 text-xs">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- 2. 현장 후보 등록 패널 -->
+                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 class="text-lg font-bold mb-3 text-gray-800">👤 현장 후보 등록</h3>
+                    <form id="add-candidate-form" class="space-y-3">
+                        <div>
+                            <label for="registry-member-select" class="block text-xs font-bold text-gray-700 mb-1">교적부 성도 불러오기 (선택)</label>
+                            <select id="registry-member-select" class="w-full px-3 py-2 border rounded-md text-sm bg-white">
+                                <option value="">-- 교적부에서 성도 선택 (직접 입력 가능) --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="candidate-name" class="block text-xs font-bold text-gray-700 mb-1">후보자 성명</label>
+                            <input type="text" id="candidate-name" required placeholder="성함 입력" class="w-full px-3 py-2 border rounded-md text-sm bg-white">
+                        </div>
+                        <div>
+                            <label for="candidate-position-select" class="block text-xs font-bold text-gray-700 mb-1">선거 직책 선택</label>
+                            <select id="candidate-position-select" class="w-full px-3 py-2 border rounded-md text-sm font-bold text-blue-900 bg-white">
+                            </select>
+                        </div>
+                        <div>
+                            <label for="candidate-photo-file" class="block text-xs font-bold text-gray-700 mb-1">후보자 사진 파일</label>
+                            <input type="file" id="candidate-photo-file" accept="image/*" class="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700">
+                        </div>
+                        <button type="submit" class="w-full bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md font-bold text-sm transition">
+                            후보 즉시 등록
+                        </button>
+                    </form>
+                </div>
+
+                <!-- 3. 투표 개시/마감 및 결선 컨트롤 패널 -->
+                <div class="bg-gray-50 p-4 rounded border border-gray-200 flex flex-col justify-between space-y-4 col-span-1 md:col-span-2">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <button id="start-election-btn" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-xl shadow font-bold transition text-sm flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            투표 개시 (시작)
+                        </button>
+                        <button id="stop-election-btn" class="w-full bg-amber-600 hover:bg-amber-700 text-white py-3 px-4 rounded-xl shadow font-bold transition text-sm flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10h6v4H9z"></path></svg>
+                            투표 마감 (종료)
+                        </button>
+                        <button id="start-round2-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 px-4 rounded-xl shadow font-bold transition text-sm flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            2배수 결선(2차) 개시
+                        </button>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <button id="open-projector-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-4 rounded-xl shadow font-bold transition text-sm flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                            🖥 대형 전광판 모드 (프로젝터 송출용) 열기
+                        </button>
+
+                        <div class="flex-1 bg-white p-3 rounded-xl border border-gray-300 flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-bold text-gray-800">성도들에게 실시간 개표 현황 공개</p>
+                                <p class="text-[11px] text-gray-500">투표소 하단에 현황판을 공유합니다.</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="toggle-public-results" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. 관리자용 실시간 개표 현황판 -->
+                <div class="bg-blue-50 p-4 rounded border border-blue-200 col-span-1 md:col-span-2 shadow-inner">
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-4">
+                        <h3 class="text-lg font-bold text-blue-900 flex items-center">
+                            <span>📊 관리자용 실시간 개표 현황판 <span id="round-badge" class="ml-2 text-sm bg-blue-200 text-blue-800 px-2 py-1 rounded">1차 투표</span></span>
+                            <span id="election-status-badge" class="ml-2 text-xs bg-red-600 text-white px-2 py-0.5 rounded font-bold">마감됨</span>
+                        </h3>
+                        <div class="mt-2 sm:mt-0 text-sm font-medium bg-white px-3 py-2 rounded shadow-sm border border-blue-100">
+                            총 투표자: <span id="total-voters-display" class="font-bold text-blue-700 text-lg">0</span> 명
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto bg-white rounded shadow-sm border border-gray-200">
+                        <table class="min-w-full">
+                            <thead class="bg-gray-100 border-b border-gray-200">
+                                <tr>
+                                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-600">직책 및 정수</th>
+                                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-600">후보자 성명</th>
+                                    <th class="py-3 px-4 text-center text-sm font-semibold text-gray-600">설정된 당선 조건</th>
+                                    <th class="py-3 px-4 text-right text-sm font-semibold text-gray-600">현재 득표수</th>
+                                </tr>
+                            </thead>
+                            <tbody id="results-table-body" class="divide-y divide-gray-100">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 성도 투표소 -->
+        <section id="voter-section" class="hidden bg-white p-6 rounded-lg shadow-md border-t-4 border-blue-500">
+            <h2 class="text-2xl font-bold text-center mb-2 text-gray-800">전자 투표소 <span id="voter-round-badge" class="text-lg text-blue-600"></span></h2>
+            
+            <div id="voting-waiting-notice" class="hidden flex flex-col items-center justify-center py-12 text-center">
+                <svg class="w-16 h-16 text-amber-500 mb-4 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <h3 class="text-2xl font-bold text-gray-800 mb-2">투표 개시를 기다리는 중입니다</h3>
+                <p class="text-gray-500 font-medium">관리자(서기)가 투표를 시작하면 화면이 자동으로 활성화됩니다.</p>
+            </div>
+
+            <div id="voting-closed-notice" class="hidden flex flex-col items-center justify-center py-12 text-center">
+                <svg class="w-16 h-16 text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
+                <h3 class="text-2xl font-bold text-gray-800 mb-2">본 투표가 마감되었습니다</h3>
+                <p class="text-gray-500 font-medium">결과 발표를 기다려 주십시오.</p>
+            </div>
+
+            <form id="voting-form">
+                <p class="text-center text-sm text-blue-600 mb-6 font-medium">
+                    하나님 앞에서 거룩하고 신중한 투표를 진행해 주십시오. <br>
+                    <span id="selection-guideline" class="font-bold text-red-500">직책별 탭을 눌러 투표를 진행하세요.</span>
+                </p>
+
+                <div id="position-filter-tabs" class="flex flex-wrap gap-2 justify-center mb-6 pb-4 border-b border-gray-200">
+                </div>
+
+                <div id="candidates-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+                </div>
+
+                <div class="flex justify-center">
+                    <button type="submit" id="submit-vote-btn" class="bg-blue-900 text-white text-lg py-3 px-12 rounded-full shadow-lg hover:bg-blue-800 font-bold">
+                        선택 완료 및 투표 제출
+                    </button>
+                </div>
+            </form>
+
+            <div id="voted-message" class="hidden flex flex-col items-center justify-center py-6">
+                <svg class="w-16 h-16 text-green-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <h3 class="text-2xl font-bold text-gray-800 mb-2">투표가 완료되었습니다</h3>
+                <p class="text-gray-500 font-medium">성도님의 소중한 한 표가 안전하게 기록되었습니다.</p>
+                <p id="wait-round2-msg" class="text-blue-500 text-sm mt-2 font-bold hidden animate-pulse">결선(2차) 투표가 준비되면 화면이 자동으로 바뀝니다.</p>
+            </div>
+
+            <!-- 성도 화면용 실시간 공개 개표 현황 (스크롤 제어 보강) -->
+            <div id="public-results-container" class="hidden mt-8 pt-6 border-t-2 border-dashed border-gray-200 transition-all duration-300">
+                <h3 class="text-lg font-bold text-blue-900 mb-3 flex items-center justify-between">
+                    <span>📈 실시간 공개 개표 현황</span>
+                    <span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold animate-pulse">LIVE</span>
+                </h3>
+                <div class="overflow-x-auto bg-gray-50 rounded shadow-sm border border-gray-200 max-h-96 overflow-y-auto">
+                    <table class="min-w-full">
+                        <thead class="bg-gray-100 border-b border-gray-200 sticky top-0 z-10">
+                            <tr>
+                                <th class="py-2.5 px-4 text-left text-xs font-semibold text-gray-600">직책</th>
+                                <th class="py-2.5 px-4 text-left text-xs font-semibold text-gray-600">후보자 성명</th>
+                                <th class="py-2.5 px-4 text-right text-xs font-semibold text-gray-600">현재 득표수</th>
+                            </tr>
+                        </thead>
+                        <tbody id="public-results-table-body" class="divide-y divide-gray-100">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 대형 전광판 모달 (프로젝터 송출용 - 3가지 뷰 탑재) -->
+    <div id="projector-modal" class="hidden fixed inset-0 z-50 bg-slate-900 bg-opacity-95 flex flex-col p-6 overflow-y-auto text-white">
+        <div class="flex flex-col sm:flex-row justify-between items-center mb-6 border-b border-slate-700 pb-4 gap-4">
+            <div>
+                <span class="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">TRI-A 전광판 송출 모드</span>
+                <h2 class="text-3xl font-black mt-2">📖 제직회 및 공동의회 전광판</h2>
+            </div>
+            
+            <div class="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
+                <button type="button" onclick="switchProjectorView('candidates')" id="proj-tab-candidates" class="px-4 py-2 rounded-lg text-sm font-bold bg-indigo-600 text-white transition">후보자 명단</button>
+                <button type="button" onclick="switchProjectorView('results')" id="proj-tab-results" class="px-4 py-2 rounded-lg text-sm font-bold text-slate-300 hover:text-white transition">직분별 개표 결과</button>
+                <button type="button" onclick="switchProjectorView('summary')" id="proj-tab-summary" class="px-4 py-2 rounded-lg text-sm font-bold text-slate-300 hover:text-white transition">🎉 최종 당선자 총괄표</button>
+            </div>
+
+            <button id="close-projector-btn" class="bg-slate-700 hover:bg-slate-600 text-white px-5 py-2.5 rounded-xl font-bold transition">
+                전광판 닫기
+            </button>
+        </div>
+        
+        <div id="proj-view-candidates" class="flex flex-col flex-grow">
+            <div id="projector-filter-tabs" class="flex flex-wrap gap-2 justify-center mb-8"></div>
+            <div id="projector-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 max-w-7xl mx-auto w-full my-auto"></div>
+        </div>
+
+        <div id="proj-view-results" class="hidden flex flex-col flex-grow max-w-5xl mx-auto w-full">
+            <div id="proj-results-filter-tabs" class="flex flex-wrap gap-2 justify-center mb-6"></div>
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl p-6">
+                <table class="min-w-full">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400 text-sm">
+                            <th class="py-3 px-4 text-left">직책</th>
+                            <th class="py-3 px-4 text-left">후보자 성명</th>
+                            <th class="py-3 px-4 text-center">당선 조건</th>
+                            <th class="py-3 px-4 text-right">득표수</th>
+                        </tr>
+                    </thead>
+                    <tbody id="proj-results-tbody" class="divide-y divide-slate-700 text-lg">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="proj-view-summary" class="hidden flex flex-col flex-grow max-w-6xl mx-auto w-full">
+            <div class="text-center mb-6">
+                <h3 class="text-2xl font-bold text-amber-400">👑 제직회 및 공동의회 최종 당선자 총괄 공고</h3>
+                <p class="text-slate-400 text-sm mt-1">본 공고는 각 직책별 정관 규정에 따라 적법하게 선출된 최종 당선자 명단입니다.</p>
+            </div>
+            <div id="proj-summary-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            </div>
+        </div>
+
+        <div class="text-center text-slate-400 text-xs mt-8">
+            [TRI-A] 본 화면은 본당 프로젝터 전광판 송출용으로 최적화되어 있습니다.
+        </div>
+    </div>
+
+    <footer class="bg-gray-800 text-gray-400 py-6 text-center mt-auto">
+        <p class="text-sm">데이터 주권 독립형 디지털 행정 플랫폼 <strong>[TRI-A]</strong></p>
+    </footer>
+
+    <script type="module">
+        import { db } from "./firebase-config.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { doc, getDoc, getDocs, collection, onSnapshot, addDoc, deleteDoc, writeBatch, increment, serverTimestamp, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const auth = getAuth();
+        const MASTER_ELECTION_ID = "2026_officer_election"; 
+        
+        let globalActiveElectionId = MASTER_ELECTION_ID; 
+        let globalTotalVoters = 0;
+        let globalCandidates = [];
+        let globalPositions = []; 
+        let electionStatus = 'closed'; 
+        
+        let isUserAdmin = false;
+        let isPublicShown = false;
+        
+        let currentPositionFilter = '전체';
+        let projectorPositionFilter = '전체';
+        let projectorResultFilter = '전체';
+        let currentProjView = 'candidates';
+        
+        let candidatesUnsub = null;
+        let voterRecordUnsub = null;
+        let positionsUnsub = null;
+
+        const loginSection = document.getElementById('login-section');
+        const adminSection = document.getElementById('admin-section');
+        const voterSection = document.getElementById('voter-section');
+        const userInfoDiv = document.getElementById('user-info');
+        const userNameDisplay = document.getElementById('user-name-display');
+        const loginBtn = document.getElementById('login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        
+        const registryMemberSelect = document.getElementById('registry-member-select');
+        const candidatesGrid = document.getElementById('candidates-grid');
+        const positionFilterTabs = document.getElementById('position-filter-tabs');
+        
+        const projectorGrid = document.getElementById('projector-grid');
+        const projectorFilterTabs = document.getElementById('projector-filter-tabs');
+        const projectorModal = document.getElementById('projector-modal');
+        const openProjectorBtn = document.getElementById('open-projector-btn');
+        const closeProjectorBtn = document.getElementById('close-projector-btn');
+
+        const projViewCandidates = document.getElementById('proj-view-candidates');
+        const projViewResults = document.getElementById('proj-view-results');
+        const projViewSummary = document.getElementById('proj-view-summary');
+        const projTabCandidates = document.getElementById('proj-tab-candidates');
+        const projTabResults = document.getElementById('proj-tab-results');
+        const projTabSummary = document.getElementById('proj-tab-summary');
+        const projResultsTbody = document.getElementById('proj-results-tbody');
+        const projResultsFilterTabs = document.getElementById('proj-results-filter-tabs');
+        const projSummaryGrid = document.getElementById('proj-summary-grid');
+
+        const votingForm = document.getElementById('voting-form');
+        const votedMessage = document.getElementById('voted-message');
+        const votingWaitingNotice = document.getElementById('voting-waiting-notice');
+        const votingClosedNotice = document.getElementById('voting-closed-notice');
+        const selectionGuideline = document.getElementById('selection-guideline');
+        const waitRound2Msg = document.getElementById('wait-round2-msg');
+        
+        const resultsTableBody = document.getElementById('results-table-body');
+        const publicResultsTableBody = document.getElementById('public-results-table-body');
+        const publicResultsContainer = document.getElementById('public-results-container');
+        const togglePublicResults = document.getElementById('toggle-public-results');
+
+        const totalVotersDisplay = document.getElementById('total-voters-display');
+        const roundBadge = document.getElementById('round-badge');
+        const electionStatusBadge = document.getElementById('election-status-badge');
+        const voterRoundBadge = document.getElementById('voter-round-badge');
+        
+        const addCandidateForm = document.getElementById('add-candidate-form');
+        const candidateNameInput = document.getElementById('candidate-name');
+        const candidatePositionSelect = document.getElementById('candidate-position-select');
+        const candidatePhotoFile = document.getElementById('candidate-photo-file');
+        
+        const startElectionBtn = document.getElementById('start-election-btn');
+        const stopElectionBtn = document.getElementById('stop-election-btn');
+        const startRound2Btn = document.getElementById('start-round2-btn');
+
+        const addPositionForm = document.getElementById('add-position-form');
+        const newPosName = document.getElementById('new-pos-name');
+        const newPosQuota = document.getElementById('new-pos-quota');
+        const newPosCondition = document.getElementById('new-pos-condition');
+        const configuredPositionsList = document.getElementById('configured-positions-list');
+
+        logoutBtn.addEventListener('click', () => {
+            signOut(auth).then(() => {
+                alert("안전하게 로그아웃 되었습니다.");
+                window.location.href = "login.html";
+            });
+        });
+
+        if(openProjectorBtn) openProjectorBtn.addEventListener('click', () => projectorModal.classList.remove('hidden'));
+        if(closeProjectorBtn) closeProjectorBtn.addEventListener('click', () => projectorModal.classList.add('hidden'));
+
+        window.switchProjectorView = function(viewName) {
+            currentProjView = viewName;
+            projViewCandidates.classList.add('hidden');
+            projViewResults.classList.add('hidden');
+            projViewSummary.classList.add('hidden');
+            
+            projTabCandidates.className = "px-4 py-2 rounded-lg text-sm font-bold text-slate-300 hover:text-white transition";
+            projTabResults.className = "px-4 py-2 rounded-lg text-sm font-bold text-slate-300 hover:text-white transition";
+            projTabSummary.className = "px-4 py-2 rounded-lg text-sm font-bold text-slate-300 hover:text-white transition";
+
+            if (viewName === 'candidates') {
+                projViewCandidates.classList.remove('hidden');
+                projTabCandidates.className = "px-4 py-2 rounded-lg text-sm font-bold bg-indigo-600 text-white transition";
+            } else if (viewName === 'results') {
+                projViewResults.classList.remove('hidden');
+                projTabResults.className = "px-4 py-2 rounded-lg text-sm font-bold bg-indigo-600 text-white transition";
+                renderProjectorResultsView();
+            } else if (viewName === 'summary') {
+                projViewSummary.classList.remove('hidden');
+                projTabSummary.className = "px-4 py-2 rounded-lg text-sm font-bold bg-indigo-600 text-white transition";
+                renderProjectorSummaryView();
+            }
+        };
+
+        if(startElectionBtn) {
+            startElectionBtn.addEventListener('click', async () => {
+                if(!confirm("본 선거의 투표를 개시(시작)하시겠습니까? 성도들의 투표함이 활성화됩니다.")) return;
+                try {
+                    await updateDoc(doc(db, 'elections', MASTER_ELECTION_ID), { status: 'active' });
+                    alert("투표가 개시되었습니다.");
+                } catch(err) { alert("투표 개시 실패: " + err.message); }
+            });
+        }
+
+        if(stopElectionBtn) {
+            stopElectionBtn.addEventListener('click', async () => {
+                if(!confirm("본 선거의 투표를 마감(종료)하시겠습니까?")) return;
+                try {
+                    await updateDoc(doc(db, 'elections', MASTER_ELECTION_ID), { status: 'closed' });
+                    alert("투표가 마감되었습니다.");
+                } catch(err) { alert("투표 마감 실패: " + err.message); }
+            });
+        }
+
+        async function loadRegistryMembers() {
+            try {
+                const usersSnap = await getDocs(collection(db, 'users'));
+                registryMemberSelect.innerHTML = '<option value="">-- 교적부에서 성도 선택 (직접 입력 가능) --</option>';
+                usersSnap.forEach(docSnap => {
+                    const user = docSnap.data();
+                    const opt = document.createElement('option');
+                    opt.value = user.name;
+                    opt.textContent = `${user.name} (${user.email || '교적부원'})`;
+                    registryMemberSelect.appendChild(opt);
+                });
+            } catch (err) { console.error(err); }
+        }
+
+        registryMemberSelect.addEventListener('change', (e) => {
+            if (e.target.value) candidateNameInput.value = e.target.value;
+        });
+
+        if(togglePublicResults) {
+            togglePublicResults.addEventListener('change', async (e) => {
+                try {
+                    await updateDoc(doc(db, 'elections', MASTER_ELECTION_ID), { showResultsToPublic: e.target.checked });
+                } catch (err) { console.error(err); }
+            });
+        }
+
+        if(addPositionForm) {
+            addPositionForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const name = newPosName.value.trim();
+                const quota = parseInt(newPosQuota.value) || 1;
+                const condition = newPosCondition.value;
+
+                if (!name) return;
+
+                try {
+                    const posRef = collection(db, 'elections', MASTER_ELECTION_ID, 'positions');
+                    await addDoc(posRef, { name, quota, condition });
+                    alert(`[${name}] 직책이 성공적으로 추가되었습니다.`);
+                    newPosName.value = '';
+                    newPosQuota.value = '1';
+                } catch (err) { alert("직책 추가 실패"); }
+            });
+        }
+
+        window.deletePosition = async function(posDocId, posName) {
+            if(!confirm(`[${posName}] 직책을 삭제하시겠습니까?`)) return;
+            try {
+                await deleteDoc(doc(db, 'elections', MASTER_ELECTION_ID, 'positions', posDocId));
+                alert("삭제되었습니다.");
+            } catch (err) { alert("삭제 실패"); }
+        };
+
+        function convertFileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        if (addCandidateForm) {
+            addCandidateForm.addEventListener('submit', async (e) => {
+                e.preventDefault(); 
+                const name = candidateNameInput.value.trim();
+                const position = candidatePositionSelect.value;
+                const file = candidatePhotoFile.files[0];
+                
+                if (!name || !position) return alert("후보자 성명과 직책을 확인해주세요.");
+
+                try {
+                    let photoUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80"; 
+                    if (file) photoUrl = await convertFileToBase64(file);
+
+                    const candidatesRef = collection(db, 'elections', globalActiveElectionId, 'candidates');
+                    await addDoc(candidatesRef, { name, position, photoUrl, voteCount: 0 });
+                    
+                    alert(`[${position}] ${name} 후보 등록 완료`);
+                    candidateNameInput.value = ''; 
+                    candidatePhotoFile.value = '';
+                    registryMemberSelect.value = '';
+                } catch (error) { alert("후보 등록 실패"); }
+            });
+        }
+
+        function checkCandidateElected(candidate, totalVoters) {
+            if (totalVoters === 0) return false;
+            const posConfig = globalPositions.find(p => p.name === candidate.position);
+            const condition = posConfig ? posConfig.condition : 'two_thirds';
+
+            if (condition === 'two_thirds') {
+                return candidate.voteCount >= Math.ceil(totalVoters * (2 / 3));
+            } else if (condition === 'majority') {
+                return candidate.voteCount >= (Math.floor(totalVoters / 2) + 1);
+            } else {
+                const samePosCands = globalCandidates.filter(c => c.position === candidate.position);
+                if (samePosCands.length === 0) return false;
+                const maxVotes = Math.max(...samePosCands.map(c => c.voteCount));
+                return maxVotes > 0 && candidate.voteCount === maxVotes;
+            }
+        }
+
+        function getConditionDescription(positionName) {
+            const posConfig = globalPositions.find(p => p.name === positionName);
+            if (!posConfig) return '2/3 이상';
+            if (posConfig.condition === 'two_thirds') return `2/3 이상 (정수:${posConfig.quota}명)`;
+            if (posConfig.condition === 'majority') return `과반수 (정수:${posConfig.quota}명)`;
+            return `다득표순 (정수:${posConfig.quota}명)`;
+        }
+
+        function renderDashboards() {
+            if (isUserAdmin) {
+                totalVotersDisplay.textContent = globalTotalVoters;
+                resultsTableBody.innerHTML = '';
+            }
+
+            publicResultsTableBody.innerHTML = '';
+
+            if (globalCandidates.length === 0) {
+                if (isUserAdmin) resultsTableBody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-gray-500 text-sm">등록된 후보가 없습니다.</td></tr>';
+                publicResultsTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500 text-sm">등록된 후보가 없습니다.</td></tr>';
+                return;
+            }
+
+            globalCandidates.forEach(candidate => {
+                const isElected = checkCandidateElected(candidate, globalTotalVoters);
+                const badge = isElected ? `<span class="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full ml-2 shadow-sm animate-pulse">🎉 당선 확정</span>` : '';
+                const conditionDesc = getConditionDescription(candidate.position);
+                
+                if (isUserAdmin) {
+                    const trAdmin = document.createElement('tr');
+                    trAdmin.className = isElected ? "bg-green-50 border-b border-green-100" : "hover:bg-gray-50 border-b border-gray-100";
+                    trAdmin.innerHTML = `
+                        <td class="py-3 px-4 text-sm text-gray-600">${candidate.position}</td>
+                        <td class="py-3 px-4 text-sm font-bold text-gray-800 flex items-center">${candidate.name} ${badge}</td>
+                        <td class="py-3 px-4 text-sm text-center text-indigo-700 font-medium">${conditionDesc}</td>
+                        <td class="py-3 px-4 text-sm text-right text-red-600 font-bold text-lg">${candidate.voteCount} 표</td>
+                    `;
+                    resultsTableBody.appendChild(trAdmin);
+                }
+
+                const trPublic = document.createElement('tr');
+                trPublic.className = isElected ? "bg-green-50 border-b border-green-100" : "hover:bg-white border-b border-gray-100";
+                trPublic.innerHTML = `
+                    <td class="py-2.5 px-4 text-xs text-gray-600">${candidate.position}</td>
+                    <td class="py-2.5 px-4 text-xs font-bold text-gray-800 flex items-center">${candidate.name} ${badge}</td>
+                    <td class="py-2.5 px-4 text-xs text-right text-red-600 font-bold">${candidate.voteCount} 표</td>
+                `;
+                publicResultsTableBody.appendChild(trPublic);
+            });
+
+            if (isPublicShown) publicResultsContainer.classList.remove('hidden');
+            else publicResultsContainer.classList.add('hidden');
+        }
+
+        function renderProjectorResultsView() {
+            const positionNames = globalPositions.map(p => p.name);
+            const tabsData = ['전체', ...positionNames];
+
+            projResultsFilterTabs.innerHTML = '';
+            tabsData.forEach(pos => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                const isActive = (projectorResultFilter === pos);
+                btn.className = isActive 
+                    ? "px-4 py-2 rounded-xl text-sm font-black bg-indigo-600 text-white shadow transition" 
+                    : "px-4 py-2 rounded-xl text-sm font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition border border-slate-700";
+                btn.textContent = pos === '전체' ? '전체 보기' : `${pos} 결과`;
+                btn.addEventListener('click', () => {
+                    projectorResultFilter = pos;
+                    renderProjectorResultsView();
+                });
+                projResultsFilterTabs.appendChild(btn);
+            });
+
+            projResultsTbody.innerHTML = '';
+            const filtered = globalCandidates.filter(c => projectorResultFilter === '전체' || c.position === projectorResultFilter);
+
+            if (filtered.length === 0) {
+                projResultsTbody.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-slate-400">등록된 후보가 없습니다.</td></tr>';
+                return;
+            }
+
+            filtered.forEach(candidate => {
+                const isElected = checkCandidateElected(candidate, globalTotalVoters);
+                const badge = isElected ? `<span class="bg-green-600 text-white text-xs font-bold px-2.5 py-1 rounded-full ml-3 shadow animate-pulse">🎉 당선 확정</span>` : '';
+                const tr = document.createElement('tr');
+                tr.className = isElected ? "bg-slate-700/60 border-b border-slate-700" : "border-b border-slate-700/50 hover:bg-slate-800/40";
+                tr.innerHTML = `
+                    <td class="py-3 px-4 text-slate-300 text-sm font-medium">${candidate.position}</td>
+                    <td class="py-3 px-4 text-white font-bold flex items-center">
+                        <img src="${candidate.photoUrl}" class="w-10 h-10 rounded-full object-cover mr-3 border border-slate-600">
+                        ${candidate.name} ${badge}
+                    </td>
+                    <td class="py-3 px-4 text-center text-indigo-300 text-sm">${getConditionDescription(candidate.position)}</td>
+                    <td class="py-3 px-4 text-right text-red-400 font-black text-xl">${candidate.voteCount} 표</td>
+                `;
+                projResultsTbody.appendChild(tr);
+            });
+        }
+
+        function renderProjectorSummaryView() {
+            projSummaryGrid.innerHTML = '';
+
+            if (globalPositions.length === 0) {
+                projSummaryGrid.innerHTML = '<p class="text-slate-400 col-span-full text-center py-12 text-xl">설정된 직책이 없습니다.</p>';
+                return;
+            }
+
+            globalPositions.forEach(pos => {
+                const electedCands = globalCandidates.filter(c => c.position === pos.name && checkCandidateElected(c, globalTotalVoters));
+                
+                const card = document.createElement('div');
+                card.className = "bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl";
+                
+                let candsHtml = '';
+                if (electedCands.length === 0) {
+                    candsHtml = '<p class="text-slate-500 italic text-sm">아직 당선 확정된 인원이 없습니다.</p>';
+                } else {
+                    candsHtml = '<div class="flex flex-wrap gap-4 mt-3">';
+                    electedCands.forEach(c => {
+                        candsHtml += `
+                            <div class="flex items-center bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 space-x-3">
+                                <img src="${c.photoUrl}" class="w-12 h-12 rounded-full object-cover border-2 border-green-500">
+                                <div>
+                                    <p class="text-lg font-black text-white">${c.name}</p>
+                                    <p class="text-xs text-green-400 font-bold">${c.voteCount}표 획득 (당선)</p>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    candsHtml += '</div>';
+                }
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-center border-b border-slate-700 pb-3 mb-3">
+                        <h4 class="text-xl font-bold text-indigo-300">${pos.name} <span class="text-xs font-normal text-slate-400">(선출정수: ${pos.quota}명)</span></h4>
+                        <span class="text-xs bg-slate-900 px-2.5 py-1 rounded text-slate-300 font-semibold">당선자 ${electedCands.length}/${pos.quota}명</span>
+                    </div>
+                    ${candsHtml}
+                `;
+                projSummaryGrid.appendChild(card);
+            });
+        }
+
+        function renderPositionConfigAndTabs() {
+            configuredPositionsList.innerHTML = '';
+            candidatePositionSelect.innerHTML = '<option value="">-- 직책 선택 --</option>';
+
+            if (globalPositions.length === 0) {
+                configuredPositionsList.innerHTML = '<li class="text-gray-400">등록된 직책이 없습니다.</li>';
+            } else {
+                globalPositions.forEach(pos => {
+                    const li = document.createElement('li');
+                    li.className = "flex justify-between items-center bg-slate-50 px-2 py-1 rounded border border-slate-200";
+                    let condText = pos.condition === 'two_thirds' ? '2/3 이상' : (pos.condition === 'majority' ? '과반수' : '다득표');
+                    li.innerHTML = `<span><strong>${pos.name}</strong> (정수: ${pos.quota}명 / ${condText})</span>
+                                    <button type="button" onclick="deletePosition('${pos.id}', '${pos.name}')" class="text-red-500 font-bold hover:text-red-700 px-1">삭제</button>`;
+                    configuredPositionsList.appendChild(li);
+
+                    const opt = document.createElement('option');
+                    opt.value = pos.name;
+                    opt.textContent = `${pos.name} (정수 ${pos.quota}명)`;
+                    candidatePositionSelect.appendChild(opt);
+                });
+            }
+
+            const positionNames = globalPositions.map(p => p.name);
+            const tabsData = ['전체', ...positionNames];
+
+            positionFilterTabs.innerHTML = '';
+            tabsData.forEach(pos => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                const isActive = (currentPositionFilter === pos);
+                btn.className = isActive ? "px-4 py-2 rounded-full text-sm font-bold bg-blue-900 text-white shadow transition" : "px-4 py-2 rounded-full text-sm font-bold bg-gray-200 text-gray-700 hover:bg-gray-300 transition";
+                btn.textContent = pos === '전체' ? '전체 보기' : `${pos} 선거`;
+                btn.addEventListener('click', () => { currentPositionFilter = pos; renderCandidatesAndProjector(); });
+                positionFilterTabs.appendChild(btn);
+            });
+
+            projectorFilterTabs.innerHTML = '';
+            tabsData.forEach(pos => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                const isActive = (projectorPositionFilter === pos);
+                btn.className = isActive ? "px-5 py-2.5 rounded-xl text-sm font-black bg-indigo-600 text-white shadow-lg transition" : "px-5 py-2.5 rounded-xl text-sm font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition border border-slate-700";
+                btn.textContent = pos === '전체' ? '전체 보기' : `${pos} 명단`;
+                btn.addEventListener('click', () => { projectorPositionFilter = pos; renderCandidatesAndProjector(); });
+                projectorFilterTabs.appendChild(btn);
+            });
+        }
+
+        function renderCandidatesAndProjector() {
+            renderPositionConfigAndTabs();
+
+            candidatesGrid.innerHTML = '';
+            projectorGrid.innerHTML = '';
+
+            const filteredCandidates = globalCandidates.filter(c => currentPositionFilter === '전체' || c.position === currentPositionFilter);
+            const filteredProjector = globalCandidates.filter(c => projectorPositionFilter === '전체' || c.position === projectorPositionFilter);
+
+            let activeQuota = 10;
+            if (currentPositionFilter !== '전체') {
+                const found = globalPositions.find(p => p.name === currentPositionFilter);
+                if (found) activeQuota = found.quota;
+            }
+            selectionGuideline.textContent = currentPositionFilter === '전체' 
+                ? `※ 전체 보기 모드입니다.` 
+                : `※ [${currentPositionFilter}] 선거: 최대 ${activeQuota}명까지 선택하실 수 있습니다.`;
+
+            if (filteredCandidates.length === 0) {
+                candidatesGrid.innerHTML = '<p class="text-gray-500 col-span-full text-center py-8 font-medium">해당 직분에 등록된 후보자가 없습니다.</p>';
+            } else {
+                filteredCandidates.forEach((candidate) => {
+                    const photoSrc = candidate.photoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80";
+                    const label = document.createElement('label');
+                    label.className = "cursor-pointer border-2 border-gray-200 rounded-xl p-4 flex items-center space-x-4 hover:border-blue-500 hover:bg-blue-50 transition duration-200 bg-white shadow-xs";
+                    label.innerHTML = `
+                        <input type="checkbox" name="vote-selection" value="${candidate.id}" class="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0">
+                        <img src="${photoSrc}" alt="${candidate.name}" class="w-16 h-16 rounded-full object-cover border-2 border-slate-200 shrink-0">
+                        <div class="overflow-hidden">
+                            <p class="text-lg font-bold text-gray-800 truncate">${candidate.name}</p>
+                            <p class="text-xs text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-full inline-block mt-1">${candidate.position}</p>
+                        </div>
+                    `;
+                    candidatesGrid.appendChild(label);
+                });
+            }
+
+            if (filteredProjector.length === 0) {
+                projectorGrid.innerHTML = '<p class="text-slate-400 col-span-full text-center py-12 text-xl font-bold">해당 직분에 등록된 후보자가 없습니다.</p>';
+            } else {
+                filteredProjector.forEach((candidate) => {
+                    const photoSrc = candidate.photoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80";
+                    const projDiv = document.createElement('div');
+                    projDiv.className = "bg-slate-800 border border-slate-700 rounded-2xl p-6 flex flex-col items-center text-center shadow-2xl transform hover:scale-105 transition duration-300";
+                    projDiv.innerHTML = `
+                        <img src="${photoSrc}" alt="${candidate.name}" class="w-32 h-32 rounded-full object-cover border-4 border-indigo-500 shadow-lg mb-4">
+                        <span class="bg-indigo-900 text-indigo-200 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-2">${candidate.position} 후보</span>
+                        <h3 class="text-2xl font-black text-white tracking-tight">${candidate.name}</h3>
+                    `;
+                    projectorGrid.appendChild(projDiv);
+                });
+            }
+
+            renderDashboards();
+            if(currentProjView === 'results') renderProjectorResultsView();
+            if(currentProjView === 'summary') renderProjectorSummaryView();
+        }
+
+        function updateVoterScreenState() {
+            if (electionStatus === 'active') {
+                votingWaitingNotice.classList.add('hidden');
+                votingClosedNotice.classList.add('hidden');
+                votingForm.classList.remove('hidden');
+                electionStatusBadge.className = "ml-2 text-xs bg-green-600 text-white px-2 py-0.5 rounded font-bold animate-pulse";
+                electionStatusBadge.textContent = "투표 진행 중 (LIVE)";
+            } else if (electionStatus === 'ready') {
+                votingWaitingNotice.classList.remove('hidden');
+                votingClosedNotice.classList.add('hidden');
+                votingForm.classList.add('hidden');
+                votedMessage.classList.add('hidden');
+                electionStatusBadge.className = "ml-2 text-xs bg-amber-500 text-white px-2 py-0.5 rounded font-bold";
+                electionStatusBadge.textContent = "투표 대기 중";
+            } else {
+                votingWaitingNotice.classList.add('hidden');
+                votingClosedNotice.classList.remove('hidden');
+                votingForm.classList.add('hidden');
+                electionStatusBadge.className = "ml-2 text-xs bg-red-600 text-white px-2 py-0.5 rounded font-bold";
+                electionStatusBadge.textContent = "투표 마감됨";
+            }
+        }
+
+        function initPositionsListener() {
+            const posRef = collection(db, 'elections', MASTER_ELECTION_ID, 'positions');
+            if(positionsUnsub) positionsUnsub();
+            positionsUnsub = onSnapshot(posRef, (snapshot) => {
+                globalPositions = [];
+                snapshot.forEach(docSnap => globalPositions.push({ id: docSnap.id, ...docSnap.data() }));
+                renderPositionConfigAndTabs();
+            });
+        }
+
+        function setupActiveElectionListeners(electionId, roundNum) {
+            roundBadge.textContent = roundNum === 2 ? "2차 투표 (결선)" : "1차 투표";
+            voterRoundBadge.textContent = roundNum === 2 ? "(2차 결선)" : "";
+            
+            if(candidatesUnsub) candidatesUnsub();
+            if(voterRecordUnsub) voterRecordUnsub();
+
+            const candidatesRef = collection(db, 'elections', electionId, 'candidates');
+            candidatesUnsub = onSnapshot(candidatesRef, (snapshot) => {
+                globalCandidates = [];
+                if (!snapshot.empty) {
+                    snapshot.forEach(docSnap => globalCandidates.push({ id: docSnap.id, ...docSnap.data() }));
+                    globalCandidates.sort((a, b) => b.voteCount - a.voteCount);
+                }
+                renderCandidatesAndProjector();
+            });
+
+            if(auth.currentUser) {
+                const voterRecordRef = doc(db, 'elections', electionId, 'voters', auth.currentUser.uid);
+                voterRecordUnsub = onSnapshot(voterRecordRef, (voterSnap) => {
+                    if (voterSnap.exists() && voterSnap.data().hasVoted) {
+                        votingForm.classList.add('hidden');
+                        votingWaitingNotice.classList.add('hidden');
+                        votingClosedNotice.classList.add('hidden');
+                        votedMessage.classList.remove('hidden');
+                        waitRound2Msg.classList.remove('hidden');
+                    }
+                });
+            }
+        }
+
+        function initMasterListener() {
+            const masterDocRef = doc(db, 'elections', MASTER_ELECTION_ID);
+            onSnapshot(masterDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    const newActiveId = data.currentRoundId || MASTER_ELECTION_ID;
+                    
+                    isPublicShown = data.showResultsToPublic || false;
+                    if(togglePublicResults) togglePublicResults.checked = isPublicShown;
+                    
+                    electionStatus = data.status || 'ready';
+                    updateVoterScreenState();
+                    
+                    if(newActiveId !== globalActiveElectionId) globalActiveElectionId = newActiveId;
+
+                    getDoc(doc(db, 'elections', globalActiveElectionId)).then(activeSnap => {
+                        let roundNum = 1;
+                        if(activeSnap.exists()) {
+                            globalTotalVoters = activeSnap.data().totalVoters || 0;
+                            roundNum = activeSnap.data().round || 1;
+                        }
+                        renderDashboards();
+                        setupActiveElectionListeners(globalActiveElectionId, roundNum);
+                    });
+                } else {
+                    setDoc(masterDocRef, { totalVoters: 0, currentRoundId: MASTER_ELECTION_ID, round: 1, status: 'ready', showResultsToPublic: false });
+                    setupActiveElectionListeners(MASTER_ELECTION_ID, 1);
+                }
+            });
+            initPositionsListener();
+        }
+
+        votingForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (electionStatus !== 'active') return alert("현재 투표 진행 중이 아닙니다.");
+
+            const selectedOptions = document.querySelectorAll('input[name="vote-selection"]:checked');
+            if (selectedOptions.length === 0) return alert("후보자를 한 명 이상 선택해 주십시오.");
+
+            let allowedQuota = 10;
+            if (currentPositionFilter !== '전체') {
+                const foundPos = globalPositions.find(p => p.name === currentPositionFilter);
+                if (foundPos) allowedQuota = foundPos.quota;
+            }
+
+            if (selectedOptions.length > allowedQuota) {
+                return alert(`[${currentPositionFilter}] 선거는 최대 ${allowedQuota}명까지만 선택하실 수 있습니다.`);
+            }
+
+            if (!confirm(`총 ${selectedOptions.length}명을 선택하셨습니다. 제출하시겠습니까?`)) return;
+
+            const submitBtn = document.getElementById('submit-vote-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = "처리 중...";
+
+            try {
+                const batch = writeBatch(db);
+                const userUid = auth.currentUser.uid;
+                const electionDocRef = doc(db, 'elections', globalActiveElectionId);
+                const masterDocRef = doc(db, 'elections', MASTER_ELECTION_ID);
+
+                const voterRef = doc(db, 'elections', globalActiveElectionId, 'voters', userUid);
+                batch.set(voterRef, { hasVoted: true, votedAt: serverTimestamp() });
+                
+                batch.set(electionDocRef, { totalVoters: increment(1) }, { merge: true });
+                if(globalActiveElectionId !== MASTER_ELECTION_ID) {
+                    batch.set(masterDocRef, { totalVoters: increment(1) }, { merge: true });
+                }
+
+                selectedOptions.forEach(input => {
+                    const candidateRef = doc(db, 'elections', globalActiveElectionId, 'candidates', input.value);
+                    batch.update(candidateRef, { voteCount: increment(1) });
+                });
+
+                await batch.commit();
+
+            } catch (error) {
+                alert("투표 처리 중 오류가 발생했습니다.");
+                submitBtn.disabled = false;
+                submitBtn.textContent = "선택 완료 및 투표 제출";
+            }
+        });
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                loginBtn.classList.add('hidden');
+                loginSection.classList.add('hidden'); 
+                userInfoDiv.classList.remove('hidden');
+
+                const userRef = doc(db, 'users', user.uid);
+                const userSnap = await getDoc(userRef);
+                let role = 'member'; 
+                let userName = user.displayName || '성도';
+                isUserAdmin = false;
+
+                if (userSnap.exists()) {
+                    role = userSnap.data().role;
+                    userName = userSnap.data().name || userName;
+                }
+                userNameDisplay.textContent = `${userName} 님`;
+
+                const adminRoles = ['clerk', 'master', 'director', 'teacher']; 
+                if (adminRoles.includes(role)) {
+                    isUserAdmin = true;
+                    adminSection.classList.remove('hidden');
+                }
+
+                voterSection.classList.remove('hidden');
+                loadRegistryMembers(); 
+                initMasterListener();
+
+            } else {
+                loginSection.classList.add('hidden');
+                loginSection.classList.remove('hidden');
+                adminSection.classList.add('hidden');
+                voterSection.classList.add('hidden');
+                userInfoDiv.classList.add('hidden');
+                loginBtn.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🕊️</text></svg>">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>[TRI-A] 선거 플랫폼 로그인</title>
+    
+    <!-- PWA 및 모바일 앱 설치 지원 (상위 폴더 경로 적용) -->
+    <link rel="manifest" href="../manifest.json">
+    <meta name="theme-color" content="#1e3a8a">
+    <link rel="apple-touch-icon" href="../icon-192x192.png">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <style>
+        html { overflow-y: scroll; }
+        body { font-family: "Pretendard Variable", Pretendard, sans-serif; letter-spacing: -0.015em; font-weight: 500; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-xl border border-gray-200 overflow-hidden">
+        <!-- 헤더 영역 -->
+        <div class="bg-blue-900 p-7 text-center text-white">
+            <span class="inline-block px-3 py-1 rounded-full bg-white/10 text-blue-200 text-xs font-black uppercase tracking-wider mb-2">Digital Election System</span>
+            <h1 class="text-2xl font-black tracking-tight">
+                <span class="text-red-400">T</span>RI-<span class="text-blue-300">A</span> 안전 인증
+            </h1>
+            <p class="text-xs text-blue-200 mt-2 font-medium">원하시는 로그인 방식을 선택해주세요. 투표의 비밀은 철저히 보장됩니다.</p>
+        </div>
+
+        <!-- 4대 통합 탭 메뉴 -->
+        <div class="flex border-b border-gray-200 bg-gray-50 text-[11px] sm:text-xs font-bold text-gray-600">
+            <button type="button" onclick="switchTab('google')" id="tabGoogle" class="flex-1 py-3 text-center border-b-2 border-blue-900 text-blue-900 bg-white font-bold transition">구글</button>
+            <button type="button" onclick="switchTab('email')" id="tabEmail" class="flex-1 py-3 text-center border-b-2 border-transparent transition hover:text-gray-900">이메일</button>
+            <button type="button" onclick="switchTab('signup')" id="tabSignup" class="flex-1 py-3 text-center border-b-2 border-transparent transition hover:text-gray-900">회원가입</button>
+            <button type="button" onclick="switchTab('phone')" id="tabPhone" class="flex-1 py-3 text-center border-b-2 border-transparent transition hover:text-gray-900">휴대폰</button>
+        </div>
+
+        <!-- 1. 구글 단독 탭 -->
+        <div id="formGoogle" class="p-6 md:p-8 flex flex-col space-y-4">
+            <p class="text-xs text-gray-500 font-medium text-center">가장 빠르고 안전한 구글 계정 연동 로그인입니다.</p>
+            <button type="button" onclick="handleGoogleLogin()" class="w-full flex items-center justify-center gap-3 px-6 py-3.5 text-sm font-black text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition shadow-xs cursor-pointer">
+                <svg class="w-5 h-5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                구글 계정으로 시작하기
+            </button>
+        </div>
+
+        <!-- 2. 이메일 로그인 폼 -->
+        <form id="formEmail" onsubmit="handleEmailLogin(event)" class="p-6 md:p-8 flex flex-col space-y-3.5 hidden">
+            <div>
+                <label class="block text-xs font-black text-gray-700 mb-1">이메일 주소</label>
+                <input type="email" id="emailInput" required placeholder="user@church.org" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm font-bold focus:outline-none focus:border-blue-900">
+            </div>
+            <div>
+                <label class="block text-xs font-black text-gray-700 mb-1">비밀번호</label>
+                <input type="password" id="passwordInput" required placeholder="비밀번호 입력" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm font-bold focus:outline-none focus:border-blue-900">
+            </div>
+            <button type="submit" class="w-full py-3.5 bg-blue-900 hover:bg-blue-800 text-white font-black rounded-xl text-sm transition shadow-md cursor-pointer">
+                이메일로 로그인하기
+            </button>
+        </form>
+
+        <!-- 3. 회원가입 폼 -->
+        <form id="formSignup" onsubmit="handleSignup(event)" class="p-6 md:p-8 flex flex-col space-y-3.5 hidden">
+            <div>
+                <label class="block text-xs font-black text-gray-700 mb-1">이름 (실명)</label>
+                <input type="text" id="signupName" required placeholder="홍길동" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm font-bold focus:outline-none focus:border-blue-900">
+            </div>
+            <div>
+                <label class="block text-xs font-black text-gray-700 mb-1">이메일 주소</label>
+                <input type="email" id="signupEmail" required placeholder="user@church.org" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm font-bold focus:outline-none focus:border-blue-900">
+            </div>
+            <div>
+                <label class="block text-xs font-black text-gray-700 mb-1">비밀번호 (6자 이상)</label>
+                <input type="password" id="signupPassword" required placeholder="비밀번호 입력" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm font-bold focus:outline-none focus:border-blue-900">
+            </div>
+            
+            <button type="submit" class="w-full py-3.5 bg-blue-900 hover:bg-blue-800 text-white font-black rounded-xl text-sm transition shadow-md cursor-pointer mt-2">
+                회원가입 완료하기
+            </button>
+        </form>
+
+        <!-- 4. 휴대폰 번호 인증 폼 -->
+        <div id="formPhone" class="p-6 md:p-8 flex flex-col space-y-3.5 hidden">
+            <div>
+                <label class="block text-xs font-black text-gray-700 mb-1">휴대폰 번호 ('-' 없이 입력)</label>
+                <input type="text" id="phoneInput" placeholder="01012345678" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm font-bold focus:outline-none focus:border-blue-900">
+            </div>
+            <button type="button" onclick="requestPhoneVerification()" id="sendOtpBtn" class="w-full bg-gray-800 hover:bg-gray-900 text-white py-3 rounded-xl font-black text-sm transition cursor-pointer">
+                인증 문자(SMS) 받기
+            </button>
+            
+            <div id="otpContainer" class="hidden space-y-3 pt-2 border-t border-gray-100">
+                <div>
+                    <label class="block text-xs font-black text-gray-700 mb-1">인증번호 6자리 입력</label>
+                    <input type="text" id="otpInput" placeholder="123456" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm font-bold focus:outline-none focus:border-blue-900 text-center tracking-widest">
+                </div>
+                <button type="button" onclick="verifyOtpCode()" class="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-black text-sm transition cursor-pointer">
+                    인증 확인 및 로그인
+                </button>
+            </div>
+            <div id="recaptcha-container"></div>
+        </div>
+
+    </div>
+
+    <!-- 스크립트 모듈 -->
+    <script type="module">
+        import { db } from "./firebase-config.js";
+        import { 
+            getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, 
+            GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, 
+            RecaptchaVerifier, signInWithPhoneNumber, signOut 
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const auth = getAuth();
+        const googleProvider = new GoogleAuthProvider();
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const result = await getRedirectResult(auth);
+                if (result && result.user) {
+                    await handleUserPostLogin(result.user);
+                }
+            } catch (err) {
+                console.error("리다이렉트 로그인 처리 오류:", err);
+            }
+        });
+
+        window.switchTab = (type) => {
+            document.getElementById('formGoogle').classList.add('hidden');
+            document.getElementById('formEmail').classList.add('hidden');
+            document.getElementById('formSignup').classList.add('hidden');
+            document.getElementById('formPhone').classList.add('hidden');
+            
+            document.getElementById('tabGoogle').className = "flex-1 py-3 text-center border-b-2 border-transparent transition text-gray-600 bg-gray-50";
+            document.getElementById('tabEmail').className = "flex-1 py-3 text-center border-b-2 border-transparent transition text-gray-600 bg-gray-50";
+            document.getElementById('tabSignup').className = "flex-1 py-3 text-center border-b-2 border-transparent transition text-gray-600 bg-gray-50";
+            document.getElementById('tabPhone').className = "flex-1 py-3 text-center border-b-2 border-transparent transition text-gray-600 bg-gray-50";
+
+            if (type === 'google') {
+                document.getElementById('formGoogle').classList.remove('hidden');
+                document.getElementById('tabGoogle').className = "flex-1 py-3 text-center border-b-2 border-blue-900 text-blue-900 bg-white font-bold";
+            } else if (type === 'email') {
+                document.getElementById('formEmail').classList.remove('hidden');
+                document.getElementById('tabEmail').className = "flex-1 py-3 text-center border-b-2 border-blue-900 text-blue-900 bg-white font-bold";
+            } else if (type === 'signup') {
+                document.getElementById('formSignup').classList.remove('hidden');
+                document.getElementById('tabSignup').className = "flex-1 py-3 text-center border-b-2 border-blue-900 text-blue-900 bg-white font-bold";
+            } else if (type === 'phone') {
+                document.getElementById('formPhone').classList.remove('hidden');
+                document.getElementById('tabPhone').className = "flex-1 py-3 text-center border-b-2 border-blue-900 text-blue-900 bg-white font-bold";
+                initRecaptcha();
+            }
+        };
+
+        async function handleUserPostLogin(user) {
+            const userDocRef = doc(db, 'users', user.uid);
+            const userDoc = await getDoc(userDocRef);
+
+            let userData;
+            if (!userDoc.exists()) {
+                userData = {
+                    uid: user.uid, 
+                    name: user.displayName || '성도', 
+                    email: user.email || '',
+                    role: 'member', 
+                    isApproved: true, 
+                    status: 'active', 
+                    createdAt: serverTimestamp()
+                };
+                await setDoc(userDocRef, userData);
+                alert(`환영합니다! 선거 대시보드로 이동합니다.`);
+            } else {
+                userData = userDoc.data();
+                if (userData.status === 'withdrawn') {
+                    alert("탈퇴 처리된 계정입니다.");
+                    return signOut(auth);
+                }
+            }
+
+            // 모든 사용자를 선거 대시보드(index.html)로 안전하게 이동시킵니다.
+            window.location.href = "index.html";
+        }
+
+        window.handleGoogleLogin = async () => {
+            try {
+                const result = await signInWithPopup(auth, googleProvider);
+                await handleUserPostLogin(result.user);
+            } catch (err) {
+                try {
+                    await signInWithRedirect(auth, googleProvider);
+                } catch (redirectErr) {
+                    alert("구글 로그인 오류: " + redirectErr.message);
+                }
+            }
+        };
+
+        window.handleEmailLogin = async (e) => {
+            e.preventDefault(); 
+            const email = document.getElementById('emailInput').value.trim();
+            const password = document.getElementById('passwordInput').value.trim();
+            try {
+                const result = await signInWithEmailAndPassword(auth, email, password);
+                await handleUserPostLogin(result.user);
+            } catch (err) {
+                alert("이메일 로그인 실패: 아이디와 비밀번호를 확인해주세요.");
+            }
+        };
+
+        window.handleSignup = async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('signupName').value.trim();
+            const email = document.getElementById('signupEmail').value.trim();
+            const password = document.getElementById('signupPassword').value.trim();
+
+            try {
+                const result = await createUserWithEmailAndPassword(auth, email, password);
+                await setDoc(doc(db, 'users', result.user.uid), {
+                    uid: result.user.uid, 
+                    name: name, 
+                    email: email,
+                    role: 'member', 
+                    isApproved: true, 
+                    status: 'active', 
+                    createdAt: serverTimestamp()
+                });
+                alert(`회원가입이 완료되었습니다. 환영합니다, ${name} 성도님!`);
+                window.location.href = "index.html"; 
+            } catch (err) { 
+                alert("회원가입 실패: " + err.message); 
+            }
+        };
+
+        function initRecaptcha() {
+            if (!window.recaptchaVerifier) {
+                window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                    'size': 'invisible'
+                });
+            }
+        }
+
+        window.requestPhoneVerification = async () => {
+            let phone = document.getElementById('phoneInput').value.trim();
+            if (!phone.startsWith("+82")) {
+                phone = phone.startsWith("0") ? "+82" + phone.slice(1) : "+82" + phone;
+            }
+
+            const btn = document.getElementById('sendOtpBtn');
+            try {
+                btn.disabled = true;
+                btn.textContent = "인증번호 전송 중...";
+                const appVerifier = window.recaptchaVerifier;
+                const confirmationResult = await signInWithPhoneNumber(auth, phone, appVerifier);
+                window.confirmationResult = confirmationResult;
+                
+                alert("인증 문자가 발송되었습니다. 번호를 입력해주세요.");
+                document.getElementById('otpContainer').classList.remove('hidden');
+                btn.textContent = "인증번호 재전송";
+                btn.disabled = false;
+            } catch (err) {
+                alert("문자 발송 실패: 휴대폰 번호 형식을 확인하거나 파이어베이스 설정을 확인하세요.");
+                btn.disabled = false;
+                btn.textContent = "인증 문자(SMS) 받기";
+            }
+        };
+
+        window.verifyOtpCode = async () => {
+            const code = document.getElementById('otpInput').value.trim();
+            if (!code) return alert("인증번호를 입력해주세요.");
+            try {
+                const result = await window.confirmationResult.confirm(code);
+                await handleUserPostLogin(result.user);
+            } catch (err) {
+                alert("인증번호가 올바르지 않습니다.");
+            }
+        };
+    </script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('../sw.js')
+                    .catch(error => console.error('ServiceWorker 등록 실패:', error));
+            });
+        }
+    </script>
+</body>
+</html>
