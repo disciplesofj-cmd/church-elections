@@ -6,6 +6,9 @@
     <title>[TRI-A] 디지털 선거 플랫폼</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 🌟 QR 코드 생성을 위한 초경량 안정형 라이브러리 CDN 추가 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
         html { overflow-y: scroll; }
@@ -176,19 +179,37 @@
                         </div>
                     </div>
 
-                    <div class="flex flex-col sm:flex-row gap-3">
-                        <button id="open-projector-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-4 rounded-xl shadow font-bold transition text-sm flex items-center justify-center">
-                            🖥 대형 전광판 모드 열기
+                    <!-- 현장 보안 기능 (PIN 및 QR) 및 전광판 컨트롤 -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <button id="open-projector-btn" class="col-span-1 sm:col-span-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-4 rounded-xl shadow font-bold transition text-sm flex items-center justify-center">
+                            🖥 전광판 모드 열기
                         </button>
 
-                        <div class="flex-1 bg-white p-3 rounded-xl border border-gray-300 flex items-center justify-between">
+                        <div class="col-span-1 sm:col-span-1 bg-white p-2.5 rounded-xl border border-red-200 flex flex-col justify-between">
+                            <div class="flex items-center justify-between mb-1">
+                                <div>
+                                    <p class="text-xs font-bold text-red-700">보안 투표 (PIN 필수)</p>
+                                    <p class="text-[10px] text-gray-500">본당 현장 인증 전용</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="toggle-pin-mode" class="sr-only peer">
+                                    <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
+                                </label>
+                            </div>
+                            <div id="admin-pin-control" class="flex items-center justify-between bg-red-50 px-2 py-1 rounded hidden">
+                                <span class="text-xs font-bold text-gray-700">PIN: <span id="admin-pin-display" class="text-red-600 font-black text-sm">0000</span></span>
+                                <button type="button" onclick="generateNewPin()" class="text-[10px] bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded font-bold shadow-sm">랜덤발급</button>
+                            </div>
+                        </div>
+
+                        <div class="col-span-1 sm:col-span-1 bg-white p-3 rounded-xl border border-gray-300 flex items-center justify-between">
                             <div>
-                                <p class="text-xs font-bold text-gray-800">성도들에게 실시간 개표 공개</p>
-                                <p class="text-[11px] text-gray-500">투표소 하단에 현황판 공유</p>
+                                <p class="text-xs font-bold text-gray-800">실시간 개표 공개</p>
+                                <p class="text-[10px] text-gray-500">투표소 하단 현황판</p>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" id="toggle-public-results" class="sr-only peer">
-                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                             </label>
                         </div>
                     </div>
@@ -254,12 +275,19 @@
                     <span id="selection-guideline" class="font-bold text-red-500">직책별 탭을 눌러 투표를 진행하세요.</span>
                 </p>
 
-                <!-- 직책별 필터 탭 (모바일에서 스크롤 가능하도록 flex-nowrap + overflow-x-auto 적용) -->
                 <div id="position-filter-tabs" class="flex flex-nowrap overflow-x-auto gap-2 justify-start sm:justify-center mb-6 pb-2 border-b border-gray-200">
                 </div>
 
-                <!-- 후보자 카드 그리드 (모바일 1열, 태블릿 이상 2~3열) -->
                 <div id="candidates-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-8">
+                </div>
+
+                <!-- 현장 인증 PIN 입력 창 (보안 모드 활성화 시에만 노출) -->
+                <div id="voter-pin-section" class="hidden mb-6 flex flex-col items-center p-4 bg-red-50 border border-red-200 rounded-xl">
+                    <label class="text-sm sm:text-base font-bold text-red-700 mb-2 flex items-center">
+                        🔒 전광판에 표시된 인증코드(PIN) 입력
+                    </label>
+                    <p class="text-xs text-red-500 mb-3 text-center">본당 현장에 참석하신 성도님만 투표를 제출할 수 있습니다.</p>
+                    <input type="tel" id="voter-pin-input" maxlength="4" placeholder="0000" class="w-32 text-center text-2xl font-black tracking-widest px-4 py-2 border-2 border-red-400 rounded-lg focus:border-red-600 focus:ring-red-600 bg-white shadow-inner">
                 </div>
 
                 <div class="flex justify-center">
@@ -307,6 +335,7 @@
             </div>
             
             <div class="flex flex-wrap justify-center bg-slate-800 p-1 rounded-xl border border-slate-700 gap-1">
+                <button type="button" onclick="switchProjectorView('qrpin')" id="proj-tab-qrpin" class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-300 hover:text-white transition">📱 접속 안내(QR)</button>
                 <button type="button" onclick="switchProjectorView('candidates')" id="proj-tab-candidates" class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold bg-indigo-600 text-white transition">후보자 명단</button>
                 <button type="button" onclick="switchProjectorView('results')" id="proj-tab-results" class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-300 hover:text-white transition">개표 결과</button>
                 <button type="button" onclick="switchProjectorView('summary')" id="proj-tab-summary" class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-300 hover:text-white transition">최종 당선자</button>
@@ -317,7 +346,22 @@
             </button>
         </div>
         
-        <div id="proj-view-candidates" class="flex flex-col flex-grow">
+        <!-- 투표 접속 안내 (QR 코드 렌더링 박스) -->
+        <div id="proj-view-qrpin" class="hidden flex flex-col items-center justify-center flex-grow py-8">
+            <h3 class="text-3xl sm:text-4xl font-black text-amber-400 mb-3 text-center">스마트폰 카메라로 아래 QR을 스캔해 주세요</h3>
+            <p class="text-slate-300 text-lg sm:text-xl mb-8 text-center">선거 플랫폼에 접속 후 투표를 진행하실 수 있습니다.</p>
+            
+            <!-- 🌟 QR코드가 안정적으로 그려질 전용 컨테이너 -->
+            <div id="qrcode-container" class="bg-white p-5 rounded-3xl shadow-2xl mb-10 flex items-center justify-center"></div>
+
+            <div id="proj-pin-display-container" class="hidden flex-col items-center bg-red-600/20 border-2 border-red-500 rounded-3xl p-6 sm:p-8 shadow-2xl max-w-md w-full">
+                <p class="text-red-300 text-base sm:text-lg font-bold mb-1">🔒 현장 투표 제출용 인증 코드 (PIN)</p>
+                <p class="text-white text-6xl sm:text-7xl font-black tracking-[0.2em]" id="proj-big-pin">0000</p>
+                <p class="text-red-200 text-xs sm:text-sm mt-3 text-center">제출 버튼 위 빈칸에 위 4자리 숫자를 입력해 주십시오.</p>
+            </div>
+        </div>
+
+        <div id="proj-view-candidates" class="hidden flex flex-col flex-grow">
             <div id="projector-filter-tabs" class="flex flex-wrap gap-2 justify-center mb-6"></div>
             <div id="projector-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6 max-w-7xl mx-auto w-full my-auto"></div>
         </div>
@@ -358,7 +402,7 @@
         <p class="text-xs sm:text-sm">데이터 주권 독립형 디지털 행정 플랫폼 <strong>[TRI-A]</strong></p>
     </footer>
 
-    <script type="module">
+<script type="module">
         import { db } from "./firebase-config.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { doc, getDoc, getDocs, collection, onSnapshot, addDoc, deleteDoc, writeBatch, increment, serverTimestamp, setDoc, updateDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -377,6 +421,9 @@
         let isUserAdmin = false;
         let adminUidsList = []; 
         let isPublicShown = false;
+
+        let isPinModeActive = false;
+        let currentActivePin = "0000";
         
         let currentPositionFilter = '전체';
         let projectorPositionFilter = '전체';
@@ -408,15 +455,20 @@
         const openProjectorBtn = document.getElementById('open-projector-btn');
         const closeProjectorBtn = document.getElementById('close-projector-btn');
 
+        const projViewQrPin = document.getElementById('proj-view-qrpin');
         const projViewCandidates = document.getElementById('proj-view-candidates');
         const projViewResults = document.getElementById('proj-view-results');
         const projViewSummary = document.getElementById('proj-view-summary');
+        const projTabQrPin = document.getElementById('proj-tab-qrpin');
         const projTabCandidates = document.getElementById('proj-tab-candidates');
         const projTabResults = document.getElementById('proj-tab-results');
         const projTabSummary = document.getElementById('proj-tab-summary');
+        
         const projResultsTbody = document.getElementById('proj-results-tbody');
         const projResultsFilterTabs = document.getElementById('proj-results-filter-tabs');
         const projSummaryGrid = document.getElementById('proj-summary-grid');
+        const projPinDisplayContainer = document.getElementById('proj-pin-display-container');
+        const projBigPin = document.getElementById('proj-big-pin');
 
         const votingForm = document.getElementById('voting-form');
         const votedMessage = document.getElementById('voted-message');
@@ -427,6 +479,12 @@
         const selectionGuideline = document.getElementById('selection-guideline');
         const waitRound2Msg = document.getElementById('wait-round2-msg');
         
+        const togglePinMode = document.getElementById('toggle-pin-mode');
+        const adminPinControl = document.getElementById('admin-pin-control');
+        const adminPinDisplay = document.getElementById('admin-pin-display');
+        const voterPinSection = document.getElementById('voter-pin-section');
+        const voterPinInput = document.getElementById('voter-pin-input');
+
         const resultsTableBody = document.getElementById('results-table-body');
         const publicResultsTableBody = document.getElementById('public-results-table-body');
         const publicResultsContainer = document.getElementById('public-results-container');
@@ -462,32 +520,90 @@
             });
         });
 
-        if(openProjectorBtn) openProjectorBtn.addEventListener('click', () => projectorModal.classList.remove('hidden'));
+        // 🌟 [안정화된 자체 생성 QR 로직] 🌟
+        function generateQRCode() {
+            const container = document.getElementById('qrcode-container');
+            container.innerHTML = ""; // 기존에 그려진 QR 지우기 (초기화)
+            
+            const currentUrl = window.location.href.split('?')[0]; 
+            
+            // QRCode.js 라이브러리를 사용해 컨테이너 안에 깔끔하게 직접 그립니다.
+            new QRCode(container, {
+                text: currentUrl,
+                width: 256,
+                height: 256,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H // 오류 복원 레벨 높음 (스캔이 아주 잘 됨)
+            });
+        }
+
+        if(openProjectorBtn) {
+            openProjectorBtn.addEventListener('click', () => {
+                projectorModal.classList.remove('hidden');
+                generateQRCode(); // 전광판 열 때 QR코드 즉시 렌더링
+                if(isPinModeActive) switchProjectorView('qrpin');
+            });
+        }
         if(closeProjectorBtn) closeProjectorBtn.addEventListener('click', () => projectorModal.classList.add('hidden'));
 
         window.switchProjectorView = function(viewName) {
             currentProjView = viewName;
+            projViewQrPin.classList.add('hidden');
             projViewCandidates.classList.add('hidden');
             projViewResults.classList.add('hidden');
             projViewSummary.classList.add('hidden');
             
-            projTabCandidates.className = "px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-300 hover:text-white transition";
-            projTabResults.className = "px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-300 hover:text-white transition";
-            projTabSummary.className = "px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-300 hover:text-white transition";
+            const inactiveClass = "px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-300 hover:text-white transition";
+            const activeClass = "px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold bg-indigo-600 text-white transition";
+            
+            projTabQrPin.className = inactiveClass;
+            projTabCandidates.className = inactiveClass;
+            projTabResults.className = inactiveClass;
+            projTabSummary.className = inactiveClass;
 
-            if (viewName === 'candidates') {
+            if (viewName === 'qrpin') {
+                projViewQrPin.classList.remove('hidden');
+                projViewQrPin.style.display = 'flex'; 
+                projTabQrPin.className = activeClass;
+            } else if (viewName === 'candidates') {
                 projViewCandidates.classList.remove('hidden');
-                projTabCandidates.className = "px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold bg-indigo-600 text-white transition";
+                projTabCandidates.className = activeClass;
             } else if (viewName === 'results') {
                 projViewResults.classList.remove('hidden');
-                projTabResults.className = "px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold bg-indigo-600 text-white transition";
+                projTabResults.className = activeClass;
                 renderProjectorResultsView();
             } else if (viewName === 'summary') {
                 projViewSummary.classList.remove('hidden');
-                projTabSummary.className = "px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold bg-indigo-600 text-white transition";
+                projTabSummary.className = activeClass;
                 renderProjectorSummaryView();
             }
         };
+
+        window.generateNewPin = async function() {
+            const newPin = Math.floor(1000 + Math.random() * 9000).toString();
+            try {
+                await updateDoc(doc(db, 'elections', MASTER_ELECTION_ID), { activePin: newPin });
+            } catch (err) {
+                alert("PIN 발급 실패: " + err.message);
+            }
+        };
+
+        if(togglePinMode) {
+            togglePinMode.addEventListener('change', async (e) => {
+                const isChecked = e.target.checked;
+                try {
+                    let pin = currentActivePin;
+                    if (isChecked && pin === "0000") {
+                         pin = Math.floor(1000 + Math.random() * 9000).toString();
+                    }
+                    await updateDoc(doc(db, 'elections', MASTER_ELECTION_ID), { 
+                        isPinRequired: isChecked,
+                        activePin: isChecked ? pin : "0000"
+                    });
+                } catch (err) { console.error(err); }
+            });
+        }
 
         if(startElectionBtn) {
             startElectionBtn.addEventListener('click', async () => {
@@ -601,6 +717,7 @@
                 await voterBatch.commit();
 
                 selectedVoteIds.clear();
+                voterPinInput.value = ''; 
                 alert("투표 기록과 득표수가 초기화되었습니다.");
             } catch(err) {
                 alert("초기화 중 오류 발생: " + err.message);
@@ -1094,6 +1211,14 @@
                 document.getElementById('submit-vote-btn').classList.remove('hidden');
                 electionStatusBadge.className = "ml-2 text-xs bg-green-600 text-white px-2 py-0.5 rounded font-bold animate-pulse";
                 electionStatusBadge.textContent = activeVotingTarget === '전체' ? "투표 진행 중 (LIVE)" : `[${activeVotingTarget}] 투표 진행 중`;
+                
+                if (isPinModeActive) {
+                    voterPinSection.classList.remove('hidden');
+                    voterPinInput.required = true;
+                } else {
+                    voterPinSection.classList.add('hidden');
+                    voterPinInput.required = false;
+                }
             } else if (electionStatus === 'ready') {
                 votingWaitingNotice.classList.remove('hidden');
                 waitingNoticeTitle.textContent = "📢 투표 대기 중 (후보 공지)";
@@ -1102,12 +1227,14 @@
                 votingForm.classList.remove('hidden'); 
                 document.getElementById('submit-vote-btn').classList.add('hidden'); 
                 votedMessage.classList.add('hidden');
+                voterPinSection.classList.add('hidden');
                 electionStatusBadge.className = "ml-2 text-xs bg-amber-500 text-white px-2 py-0.5 rounded font-bold";
                 electionStatusBadge.textContent = "투표 대기 중 (후보 공지)";
             } else {
                 votingWaitingNotice.classList.add('hidden');
                 votingClosedNotice.classList.remove('hidden');
                 votingForm.classList.add('hidden');
+                voterPinSection.classList.add('hidden');
                 electionStatusBadge.className = "ml-2 text-xs bg-red-600 text-white px-2 py-0.5 rounded font-bold";
                 electionStatusBadge.textContent = "투표 마감됨";
             }
@@ -1166,6 +1293,20 @@
                     isPublicShown = data.showResultsToPublic || false;
                     if(togglePublicResults) togglePublicResults.checked = isPublicShown;
                     
+                    isPinModeActive = data.isPinRequired || false;
+                    currentActivePin = data.activePin || "0000";
+                    
+                    if(togglePinMode) togglePinMode.checked = isPinModeActive;
+                    if(isPinModeActive) {
+                        adminPinControl.classList.remove('hidden');
+                        projPinDisplayContainer.classList.remove('hidden');
+                        adminPinDisplay.textContent = currentActivePin;
+                        projBigPin.textContent = currentActivePin;
+                    } else {
+                        adminPinControl.classList.add('hidden');
+                        projPinDisplayContainer.classList.add('hidden');
+                    }
+
                     electionStatus = data.status || 'ready';
                     activeVotingTarget = data.activeTarget || '전체';
                     targetPositionSelect.value = activeVotingTarget;
@@ -1212,7 +1353,9 @@
                         status: 'ready', 
                         activeTarget: '전체', 
                         adminUids: initialAdmin, 
-                        showResultsToPublic: false 
+                        showResultsToPublic: false,
+                        isPinRequired: false,
+                        activePin: "0000"
                     });
                     setupActiveElectionListeners(MASTER_ELECTION_ID, 1);
                 }
@@ -1225,6 +1368,16 @@
             if (electionStatus !== 'active') return alert("현재 투표가 개시되지 않았습니다.");
 
             if (selectedVoteIds.size === 0) return alert("후보자를 한 명 이상 선택해 주십시오.");
+
+            if (isPinModeActive) {
+                const userEnteredPin = voterPinInput.value.trim();
+                if (userEnteredPin !== currentActivePin) {
+                    alert(`❌ 인증 코드가 틀렸습니다.\n전광판에 표시된 4자리 숫자를 정확히 입력해 주십시오.`);
+                    voterPinInput.value = '';
+                    voterPinInput.focus();
+                    return; 
+                }
+            }
 
             if (!confirm(`총 ${selectedVoteIds.size}명을 선택하셨습니다. 제출하시겠습니까?`)) return;
 
@@ -1253,6 +1406,7 @@
 
                 await batch.commit();
                 selectedVoteIds.clear(); 
+                voterPinInput.value = ''; 
 
             } catch (error) {
                 alert("투표 처리 중 오류가 발생했습니다.");
