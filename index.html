@@ -231,12 +231,18 @@
                                 <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                                 엑셀 다운
                             </button>
-                            <div class="text-xs sm:text-sm font-medium bg-white px-2.5 py-2 rounded shadow-sm border border-blue-100">
-                                총 투표자: <span id="total-voters-display" class="font-bold text-blue-700 text-base">0</span>명
+                            <div class="flex items-center text-xs sm:text-sm font-medium bg-white px-2.5 py-1.5 rounded shadow-sm border border-blue-200">
+                                <span class="mr-2 text-gray-700">총 투표자(기준):</span>
+                                <input type="number" id="manual-total-voters" min="0" value="0" class="w-16 px-1 py-1 border border-blue-300 rounded text-blue-700 font-bold text-center focus:outline-none focus:border-blue-600 shadow-inner">
+                                <span class="mx-1 text-gray-600">명</span>
+                                <button type="button" onclick="updateTotalVoters()" class="ml-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] px-2 py-1.5 rounded font-bold shadow-sm transition">적용</button>
                             </div>
                         </div>
                     </div>
                     
+
+<!-- [신규] 관리자 직책별 개표 현황 탭 -->
+                    <div id="admin-results-filter-tabs" class="flex flex-wrap gap-2 mb-3"></div>
                     <div class="overflow-x-auto bg-white rounded shadow-sm border border-gray-200">
                         <table class="min-w-full text-xs sm:text-sm">
                             <thead class="bg-gray-100 border-b border-gray-200">
@@ -425,11 +431,13 @@
         let isPinModeActive = false;
         let currentActivePin = "0000";
         
+        // 🌟 [수정됨] 탭 필터링 전역 변수 독립 (상호 간섭 방지)
         let currentPositionFilter = '전체';
         let projectorPositionFilter = '전체';
         let projectorResultFilter = '전체';
-        let currentProjView = 'candidates';
+        let adminResultFilter = '전체'; 
         
+        let currentProjView = 'candidates';
         let selectedVoteIds = new Set();
         
         let candidatesUnsub = null;
@@ -520,28 +528,24 @@
             });
         });
 
-        // 🌟 [안정화된 자체 생성 QR 로직] 🌟
         function generateQRCode() {
             const container = document.getElementById('qrcode-container');
-            container.innerHTML = ""; // 기존에 그려진 QR 지우기 (초기화)
-            
+            container.innerHTML = ""; 
             const currentUrl = window.location.href.split('?')[0] + "?guest=true";
-            
-            // QRCode.js 라이브러리를 사용해 컨테이너 안에 깔끔하게 직접 그립니다.
             new QRCode(container, {
                 text: currentUrl,
                 width: 256,
                 height: 256,
                 colorDark : "#000000",
                 colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H // 오류 복원 레벨 높음 (스캔이 아주 잘 됨)
+                correctLevel : QRCode.CorrectLevel.H 
             });
         }
 
         if(openProjectorBtn) {
             openProjectorBtn.addEventListener('click', () => {
                 projectorModal.classList.remove('hidden');
-                generateQRCode(); // 전광판 열 때 QR코드 즉시 렌더링
+                generateQRCode(); 
                 if(isPinModeActive) switchProjectorView('qrpin');
             });
         }
@@ -549,11 +553,8 @@
 
         window.switchProjectorView = function(viewName) {
             currentProjView = viewName;
-            
-            // 🌟 핵심 수정: QR/PIN 화면이 사라지지 않고 겹치는 현상을 해결하는 초기화 코드
             projViewQrPin.style.display = ''; 
             
-            // 1. 일단 모든 화면을 다 숨깁니다.
             projViewQrPin.classList.add('hidden');
             projViewCandidates.classList.add('hidden');
             projViewResults.classList.add('hidden');
@@ -562,13 +563,11 @@
             const inactiveClass = "px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-300 hover:text-white transition";
             const activeClass = "px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold bg-indigo-600 text-white transition";
             
-            // 2. 탭 버튼 색상 모두 초기화
             projTabQrPin.className = inactiveClass;
             projTabCandidates.className = inactiveClass;
             projTabResults.className = inactiveClass;
             projTabSummary.className = inactiveClass;
 
-            // 3. 클릭한 탭의 화면만 다시 나타나게 합니다.
             if (viewName === 'qrpin') {
                 projViewQrPin.classList.remove('hidden');
                 projTabQrPin.className = activeClass;
@@ -686,29 +685,54 @@
             } catch (err) { console.error(err); }
         }
 
-        // [신규] 수기 표 전용 저장 함수
+        window.updateTotalVoters = async function() {
+            const inputVal = document.getElementById('manual-total-voters').value;
+            const newTotal = parseInt(inputVal, 10);
+            if (isNaN(newTotal) || newTotal < 0) return alert("올바른 숫자를 입력해 주십시오.");
+            
+            if(!confirm(`공동의회 개표 기준점(총 투표자)을 ${newTotal}명으로 확정 적용하시겠습니까?\n(2/3 및 과반수 당선 계산의 즉각적인 기준이 됩니다.)`)) return;
+
+            try {
+                const batch = writeBatch(db);
+                batch.update(doc(db, 'elections', globalActiveElectionId), { totalVoters: newTotal });
+                if (globalActiveElectionId !== MASTER_ELECTION_ID) {
+                    batch.update(doc(db, 'elections', MASTER_ELECTION_ID), { totalVoters: newTotal });
+                }
+                await batch.commit();
+                alert(`당선 기준이 총 ${newTotal}명으로 성공적으로 적용되었습니다.`);
+            } catch (err) {
+                alert("기준점 적용 중 오류가 발생했습니다: " + err.message);
+            }
+        };
+
         window.setManualVoteCount = async function(candidateId, newCount) {
             try {
                 const count = parseInt(newCount, 10);
                 if (isNaN(count) || count < 0) return;
                 
                 const candidateRef = doc(db, 'elections', globalActiveElectionId, 'candidates', candidateId);
-                // 기존 voteCount(앱 표)는 건드리지 않고, manualVoteCount(수기 표)만 업데이트합니다.
                 await updateDoc(candidateRef, { manualVoteCount: count });
             } catch (err) {
                 alert("수기 득표수 수정 중 오류가 발생했습니다: " + err.message);
             }
         };
 
-        window.resetVotersForTesting = async function() {
-            if(!confirm("주의: 현재 라운드의 모든 성도 투표 기록과 후보자 득표수가 0으로 초기화됩니다. 계속하시겠습니까?")) return;
+       window.resetVotersForTesting = async function() {
+            const confirmText = prompt("⚠️ [긴급 경고] 현재 라운드의 모든 성도 투표 기록, 수기 입력 표, 총 투표자 기준이 '0'으로 영구 삭제됩니다!\n\n실수 방지를 위해 정말 초기화하시려면 아래 빈칸에 '초기화'라고 정확히 입력해 주십시오.");
+            
+            if (confirmText !== "초기화") {
+                alert("입력값이 일치하지 않거나 취소되었습니다.\n초기화가 안전하게 중단되었습니다.");
+                return; 
+            }
+
             try {
                 const candidatesRef = collection(db, 'elections', globalActiveElectionId, 'candidates');
                 const candSnap = await getDocs(candidatesRef);
                 const batch = writeBatch(db);
                 candSnap.forEach(docSnap => {
-                    batch.update(docSnap.ref, { voteCount: 0 });
+                    batch.update(docSnap.ref, { voteCount: 0, manualVoteCount: 0 });
                 });
+                
                 batch.set(doc(db, 'elections', globalActiveElectionId), { totalVoters: 0 }, { merge: true });
                 if (globalActiveElectionId !== MASTER_ELECTION_ID) {
                     batch.set(doc(db, 'elections', MASTER_ELECTION_ID), { totalVoters: 0 }, { merge: true });
@@ -723,14 +747,20 @@
                 await voterBatch.commit();
 
                 selectedVoteIds.clear();
-                voterPinInput.value = ''; 
-                alert("투표 기록과 득표수가 초기화되었습니다.");
+                
+                const voterPinEl = document.getElementById('voter-pin-input');
+                if(voterPinEl) voterPinEl.value = ''; 
+                
+                const manualTotalEl = document.getElementById('manual-total-voters');
+                if(manualTotalEl) manualTotalEl.value = '0';
+
+                alert("✅ 투표 기록과 모든 득표수(앱/수기)가 초기화되었습니다.");
             } catch(err) {
                 alert("초기화 중 오류 발생: " + err.message);
             }
         };
 
-            window.downloadExcelResults = function() {
+        window.downloadExcelResults = function() {
             if (globalCandidates.length === 0) return alert("다운로드할 개표 데이터가 없습니다.");
             
             let csv = '\uFEFF직책,후보자성명,앱투표,수기투표,최종총득표,당선여부,당선조건\n';
@@ -739,7 +769,6 @@
                 const manualVotes = c.manualVoteCount || 0;
                 const totalVotes = appVotes + manualVotes;
                 
-                // 엑셀 다운로드 시 당선 판정은 합산된 총 득표수(totalVotes)를 기준으로 판단
                 const tempCandidateForCalc = { ...c, voteCount: totalVotes };
                 const isElected = checkCandidateElected(tempCandidateForCalc, globalTotalVoters) ? '당선 확정' : '낙선';
                 const cond = getConditionDescription(c.position);
@@ -758,20 +787,43 @@
             URL.revokeObjectURL(url);
         };
 
-        if(startRound2Btn) {
+       if(startRound2Btn) {
             startRound2Btn.addEventListener('click', async () => {
                 if (globalTotalVoters === 0) return alert("투표자가 없어 결선 투표를 진행할 수 없습니다.");
                 
                 const multiplier = parseFloat(round2MultiplierSelect.value) || 2;
-                let unelected = globalCandidates.filter(c => !checkCandidateElected(c, globalTotalVoters));
-                unelected.sort((a, b) => b.voteCount - a.voteCount);
+                let nextRoundCandidates = [];
 
-                if (unelected.length === 0) return alert("결선에 올릴 대상 후보자가 없습니다.");
+                globalPositions.forEach(pos => {
+                    const posCands = globalCandidates.filter(c => c.position === pos.name);
+                    if(posCands.length === 0) return;
 
-                const targetCount = Math.ceil(unelected.length * (multiplier / 2));
-                const nextRoundCandidates = unelected.slice(0, Math.max(1, targetCount));
+                    let electedCount = 0;
+                    let unelected = [];
+                    
+                    posCands.forEach(c => {
+                        const totalVotes = (c.voteCount || 0) + (c.manualVoteCount || 0);
+                        const tempC = { ...c, voteCount: totalVotes }; 
+                        
+                        if (checkCandidateElected(tempC, globalTotalVoters)) {
+                            electedCount++; 
+                        } else {
+                            unelected.push(tempC); 
+                        }
+                    });
 
-                if (!confirm(`선택하신 [${multiplier}배수] 규정에 따라 상위 ${nextRoundCandidates.length}명의 후보로 2차 결선 투표함을 생성하시겠습니까?\n(생성 후 전광판에서 후보를 공지하신 후 [투표 개시]를 눌러주세요.)`)) return;
+                    const remainingQuota = pos.quota - electedCount;
+                    
+                    if (remainingQuota > 0 && unelected.length > 0) {
+                        unelected.sort((a, b) => b.voteCount - a.voteCount);
+                        const targetCount = Math.ceil(remainingQuota * multiplier);
+                        const advanced = unelected.slice(0, targetCount);
+                        nextRoundCandidates.push(...advanced);
+                    }
+                });
+
+                if (nextRoundCandidates.length === 0) return alert("모든 직책의 선출(정수)이 완료되었거나, 결선에 올릴 후보가 없습니다.");
+                if (!confirm(`선택하신 [${multiplier}배수] 규정에 따라 총 ${nextRoundCandidates.length}명의 후보로 2차 결선 투표함을 생성하시겠습니까?\n(생성 후 전광판에서 후보를 공지하신 후 [투표 개시]를 눌러주세요.)`)) return;
 
                 startRound2Btn.disabled = true;
                 startRound2Btn.textContent = "2차 생성 중...";
@@ -780,11 +832,16 @@
                     const batch = writeBatch(db);
                     const round2Id = MASTER_ELECTION_ID + "_round2";
 
-                    batch.set(doc(db, 'elections', round2Id), { totalVoters: 0, round: 2, maxSelection: 3 });
+                    const oldCandsSnap = await getDocs(collection(db, 'elections', round2Id, 'candidates'));
+                    oldCandsSnap.forEach(docSnap => {
+                        batch.delete(docSnap.ref);
+                    });
+
+                    batch.set(doc(db, 'elections', round2Id), { totalVoters: 0, round: 2 });
 
                     nextRoundCandidates.forEach(c => {
                         const newCandRef = doc(collection(db, 'elections', round2Id, 'candidates'));
-                        batch.set(newCandRef, { name: c.name, position: c.position, photoUrl: c.photoUrl, voteCount: 0 });
+                        batch.set(newCandRef, { name: c.name, position: c.position, photoUrl: c.photoUrl, voteCount: 0, manualVoteCount: 0 });
                     });
 
                     batch.set(doc(db, 'elections', MASTER_ELECTION_ID), { 
@@ -794,11 +851,11 @@
                     }, { merge: true });
 
                     await batch.commit();
-                    alert(`2차 결선 투표함(${multiplier}배수)이 생성되었습니다.`);
+                    alert(`2차 결선 투표함이 성공적으로 생성되었습니다.`);
                     startRound2Btn.disabled = false;
                     startRound2Btn.textContent = "결선(2차) 투표 생성";
                 } catch (error) {
-                    alert("결선 생성 중 오류가 발생했습니다.");
+                    alert("결선 생성 중 오류가 발생했습니다: " + error.message);
                     startRound2Btn.disabled = false;
                     startRound2Btn.textContent = "결선(2차) 투표 생성";
                 }
@@ -896,7 +953,7 @@
                         position, 
                         photoUrl, 
                         voteCount: 0, 
-                        manualVoteCount: 0 // 수기 득표수 분리
+                        manualVoteCount: 0 
                     });
                     
                     alert(`[${position}] ${name} 후보 등록 완료`);
@@ -913,7 +970,7 @@
             const condition = posConfig ? posConfig.condition : 'two_thirds';
 
             if (condition === 'two_thirds') {
-                return candidate.voteCount >= Math.ceil(totalVoters * (2 / 3));
+                return candidate.voteCount >= Math.ceil((totalVoters * 2) / 3);
             } else if (condition === 'majority') {
                 return candidate.voteCount >= (Math.floor(totalVoters / 2) + 1);
             } else {
@@ -932,34 +989,222 @@
             return `다득표순 (정수:${posConfig.quota}명)`;
         }
 
+        // 🌟 [수정됨] 탭 UI를 실시간으로 갱신하는 렌더링 로직 통합
+        function renderPositionConfigAndTabs() {
+            const hierarchy = { '장로': 1, '장립집사': 2, '안수집사': 2, '집사': 3, '권사': 4, '회장': 5, '부회장': 6, '총무': 7, '서기': 8, '부서기': 9, '회계': 10, '부회계': 11 };
+            globalPositions.sort((a, b) => {
+                const rankA = hierarchy[a.name] || 99;
+                const rankB = hierarchy[b.name] || 99;
+                if (rankA !== rankB) return rankA - rankB;
+                return a.name.localeCompare(b.name);
+            });
+
+            configuredPositionsList.innerHTML = '';
+            candidatePositionSelect.innerHTML = '<option value="">-- 직책 선택 --</option>';
+            targetPositionSelect.innerHTML = '<option value="전체">전체 직책 동시 개시</option>';
+
+            if (globalPositions.length === 0) {
+                configuredPositionsList.innerHTML = '<li class="text-gray-400">등록된 직책이 없습니다.</li>';
+            } else {
+                globalPositions.forEach(pos => {
+                    const li = document.createElement('li');
+                    li.className = "flex justify-between items-center bg-slate-50 px-2 py-1 rounded border border-slate-200";
+                    let condText = pos.condition === 'two_thirds' ? '2/3 이상' : (pos.condition === 'majority' ? '과반수' : '다득표');
+                    li.innerHTML = `<span><strong>${pos.name}</strong> (정수: ${pos.quota}명 / ${condText})</span>
+                                    <button type="button" onclick="deletePosition('${pos.id}', '${pos.name}')" class="text-red-500 font-bold hover:text-red-700 px-1">삭제</button>`;
+                    configuredPositionsList.appendChild(li);
+
+                    const opt = document.createElement('option');
+                    opt.value = pos.name;
+                    opt.textContent = `${pos.name} (정수 ${pos.quota}명)`;
+                    candidatePositionSelect.appendChild(opt);
+
+                    const optTarget = document.createElement('option');
+                    optTarget.value = pos.name;
+                    optTarget.textContent = `${pos.name} 선거만 개시`;
+                    targetPositionSelect.appendChild(optTarget);
+                });
+            }
+
+            const positionNames = globalPositions.map(p => p.name);
+            const tabsData = ['전체', ...positionNames];
+
+            // 1. 성도 투표소 필터 탭
+            positionFilterTabs.innerHTML = '';
+            tabsData.forEach(pos => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                const isActive = (currentPositionFilter === pos);
+                btn.className = isActive 
+                    ? "px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-blue-900 text-white shadow transition shrink-0" 
+                    : "px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-gray-200 text-gray-700 hover:bg-gray-300 transition shrink-0";
+                btn.textContent = pos === '전체' ? '전체 보기' : `${pos} 선거`;
+                btn.addEventListener('click', () => { currentPositionFilter = pos; renderCandidatesAndProjector(); });
+                positionFilterTabs.appendChild(btn);
+            });
+
+            // 2. 전광판 후보자명단 필터 탭
+            projectorFilterTabs.innerHTML = '';
+            tabsData.forEach(pos => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                const isActive = (projectorPositionFilter === pos);
+                btn.className = isActive ? "px-4 py-2 rounded-xl text-xs sm:text-sm font-black bg-indigo-600 text-white shadow-lg transition shrink-0" : "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition border border-slate-700 shrink-0";
+                btn.textContent = pos === '전체' ? '전체 보기' : `${pos} 명단`;
+                btn.addEventListener('click', () => { projectorPositionFilter = pos; renderCandidatesAndProjector(); });
+                projectorFilterTabs.appendChild(btn);
+            });
+
+            // 3. 관리자 개표 현황 전용 필터 탭
+            const adminTabsContainer = document.getElementById('admin-results-filter-tabs');
+            if(adminTabsContainer) {
+                adminTabsContainer.innerHTML = '';
+                tabsData.forEach(pos => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    const isActive = (adminResultFilter === pos);
+                    btn.className = isActive 
+                        ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-800 text-white shadow transition shrink-0" 
+                        : "px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-gray-700 border border-gray-300 hover:bg-gray-100 transition shrink-0";
+                    btn.textContent = pos === '전체' ? '전체 결과' : `${pos}`;
+                    
+                    btn.addEventListener('click', () => { 
+                        adminResultFilter = pos; 
+                        renderPositionConfigAndTabs(); // 탭 색상 즉시 갱신
+                        renderDashboards(); // 표 데이터 갱신
+                    });
+                    adminTabsContainer.appendChild(btn);
+                });
+            }
+        }
+
+        function renderCandidatesAndProjector() {
+            renderPositionConfigAndTabs();
+
+            candidatesGrid.innerHTML = '';
+            projectorGrid.innerHTML = '';
+
+            const filteredCandidates = globalCandidates.filter(c => currentPositionFilter === '전체' || c.position === currentPositionFilter);
+            const filteredProjector = globalCandidates.filter(c => projectorPositionFilter === '전체' || c.position === projectorPositionFilter);
+
+            let activeQuota = 10;
+            if (currentPositionFilter !== '전체') {
+                const found = globalPositions.find(p => p.name === currentPositionFilter);
+                if (found) activeQuota = found.quota;
+            }
+            selectionGuideline.textContent = currentPositionFilter === '전체' 
+                ? `※ 전체 보기 모드입니다.` 
+                : `※ [${currentPositionFilter}] 선거: 최대 ${activeQuota}명까지 선택하실 수 있습니다.`;
+
+            if (filteredCandidates.length === 0) {
+                candidatesGrid.innerHTML = '<p class="text-gray-500 col-span-full text-center py-8 font-medium">해당 직분에 등록된 후보자가 없습니다.</p>';
+            } else {
+                filteredCandidates.forEach((candidate) => {
+                    const photoSrc = candidate.photoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80";
+                    const label = document.createElement('label');
+                    label.className = "cursor-pointer border-2 border-gray-200 rounded-xl p-3 sm:p-4 flex items-center space-x-3 sm:space-x-4 hover:border-blue-500 hover:bg-blue-50 transition duration-200 bg-white shadow-xs";
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.name = 'vote-selection';
+                    checkbox.value = candidate.id;
+                    checkbox.checked = selectedVoteIds.has(candidate.id);
+                    checkbox.className = "w-5 h-5 sm:w-6 sm:h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0";
+                    
+                    checkbox.addEventListener('change', (e) => {
+                        if (e.target.checked) {
+                            const posConfig = globalPositions.find(p => p.name === candidate.position);
+                            const maxAllowed = posConfig ? posConfig.quota : 1;
+                            
+                            let currentSelectedCount = 0;
+                            selectedVoteIds.forEach(id => {
+                                const c = globalCandidates.find(cand => cand.id === id);
+                                if (c && c.position === candidate.position) {
+                                    currentSelectedCount++;
+                                }
+                            });
+
+                            if (currentSelectedCount >= maxAllowed) {
+                                alert(`❌ [${candidate.position}] 선거는 선출 정수(${maxAllowed}명)를 초과하여 투표할 수 없습니다.`);
+                                e.target.checked = false; 
+                                return;
+                            }
+                            selectedVoteIds.add(candidate.id);
+                        } else {
+                            selectedVoteIds.delete(candidate.id);
+                        }
+                    });
+
+                    const img = document.createElement('img');
+                    img.src = photoSrc;
+                    img.alt = candidate.name;
+                    img.className = "w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-slate-200 shrink-0";
+
+                    const div = document.createElement('div');
+                    div.className = "overflow-hidden";
+                    div.innerHTML = `
+                        <p class="text-base sm:text-lg font-bold text-gray-800 truncate">${candidate.name}</p>
+                        <p class="text-[11px] sm:text-xs text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-full inline-block mt-1">${candidate.position}</p>
+                    `;
+
+                    label.appendChild(checkbox);
+                    label.appendChild(img);
+                    label.appendChild(div);
+                    candidatesGrid.appendChild(label);
+                });
+            }
+
+            if (filteredProjector.length === 0) {
+                projectorGrid.innerHTML = '<p class="text-slate-400 col-span-full text-center py-12 text-xl font-bold">해당 직분에 등록된 후보자가 없습니다.</p>';
+            } else {
+                filteredProjector.forEach((candidate) => {
+                    const photoSrc = candidate.photoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80";
+                    const projDiv = document.createElement('div');
+                    projDiv.className = "bg-slate-800 border border-slate-700 rounded-2xl p-4 sm:p-6 flex flex-col items-center text-center shadow-2xl transform hover:scale-105 transition duration-300";
+                    projDiv.innerHTML = `
+                        <img src="${photoSrc}" alt="${candidate.name}" class="w-24 h-24 sm:w-32 sm:h-32 rounded-full object-cover border-4 border-indigo-500 shadow-lg mb-3 sm:mb-4">
+                        <span class="bg-indigo-900 text-indigo-200 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-2">${candidate.position} 후보</span>
+                        <h3 class="text-xl sm:text-2xl font-black text-white tracking-tight">${candidate.name}</h3>
+                    `;
+                    projectorGrid.appendChild(projDiv);
+                });
+            }
+
+            renderDashboards();
+            if(currentProjView === 'results') renderProjectorResultsView();
+            if(currentProjView === 'summary') renderProjectorSummaryView();
+        }
+
         function renderDashboards() {
             if (isUserAdmin) {
-                totalVotersDisplay.textContent = globalTotalVoters;
+                const manualInput = document.getElementById('manual-total-voters');
+                if (manualInput && document.activeElement !== manualInput) {
+                    manualInput.value = globalTotalVoters;
+                }
                 resultsTableBody.innerHTML = '';
             }
-
             publicResultsTableBody.innerHTML = '';
 
+            const adminFilteredCands = globalCandidates.filter(c => adminResultFilter === '전체' || c.position === adminResultFilter);
+
+            if (isUserAdmin && adminFilteredCands.length === 0) {
+                resultsTableBody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-gray-500 text-sm">해당 직책에 후보가 없습니다.</td></tr>';
+            }
             if (globalCandidates.length === 0) {
-                if (isUserAdmin) resultsTableBody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-gray-500 text-sm">등록된 후보가 없습니다.</td></tr>';
                 publicResultsTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500 text-sm">등록된 후보가 없습니다.</td></tr>';
-                return;
             }
 
-            globalCandidates.forEach(candidate => {
-                // 1. 합산 계산 (앱 투표수 + 수기 투표수)
-                const appVotes = candidate.voteCount || 0;
-                const manualVotes = candidate.manualVoteCount || 0;
-                const totalVotes = appVotes + manualVotes;
-                const tempCandidateForCalc = { ...candidate, voteCount: totalVotes };
-                
-                // 2. 당선 판정은 합산된 최종 득표수(totalVotes) 기준
-                const isElected = checkCandidateElected(tempCandidateForCalc, globalTotalVoters);
-                const badge = isElected ? `<span class="bg-green-500 text-white text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ml-1 sm:ml-2 shadow-sm animate-pulse">🎉 당선</span>` : '';
-                const conditionDesc = getConditionDescription(candidate.position);
-                
-                // 3. 관리자용 테이블 렌더링
-                if (isUserAdmin) {
+            if (isUserAdmin) {
+                adminFilteredCands.forEach(candidate => {
+                    const appVotes = candidate.voteCount || 0;
+                    const manualVotes = candidate.manualVoteCount || 0;
+                    const totalVotes = appVotes + manualVotes;
+                    const tempCandidateForCalc = { ...candidate, voteCount: totalVotes };
+                    
+                    const isElected = checkCandidateElected(tempCandidateForCalc, globalTotalVoters);
+                    const badge = isElected ? `<span class="bg-green-500 text-white text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ml-1 sm:ml-2 shadow-sm animate-pulse">🎉 당선</span>` : '';
+                    const conditionDesc = getConditionDescription(candidate.position);
+                    
                     const trAdmin = document.createElement('tr');
                     trAdmin.className = isElected ? "bg-green-50 border-b border-green-100" : "hover:bg-gray-50 border-b border-gray-100";
                     trAdmin.innerHTML = `
@@ -970,13 +1215,11 @@
                         <td class="py-3 px-3 text-xs sm:text-sm text-center text-indigo-700 font-medium hidden sm:table-cell">${conditionDesc}</td>
                         <td class="py-3 px-3 text-xs sm:text-sm text-right">
                             <div class="flex items-center justify-end space-x-1 sm:space-x-3">
-                                <!-- 앱 득표수 (읽기 전용) -->
                                 <div class="flex flex-col items-center">
                                     <span class="text-[10px] text-gray-400">앱 투표</span>
                                     <span class="text-blue-600 font-bold text-sm sm:text-base">${appVotes}</span>
                                 </div>
                                 <span class="text-gray-300 font-bold">+</span>
-                                <!-- 수기 투표수 (입력 가능) -->
                                 <div class="flex flex-col items-center">
                                     <span class="text-[10px] text-gray-400">종이 수기</span>
                                     <input type="number" min="0" value="${manualVotes}" 
@@ -984,7 +1227,6 @@
                                         class="w-12 sm:w-16 px-1 py-1 border border-gray-300 rounded text-gray-700 font-bold text-center focus:outline-none focus:border-red-500 shadow-inner text-sm bg-yellow-50">
                                 </div>
                                 <span class="text-gray-300 font-bold">=</span>
-                                <!-- 최종 합산 -->
                                 <div class="flex flex-col items-center ml-2">
                                     <span class="text-[10px] text-red-500 font-bold">최종</span>
                                     <span class="text-red-600 font-black text-base sm:text-xl">${totalVotes}</span>
@@ -993,9 +1235,14 @@
                         </td>
                     `;
                     resultsTableBody.appendChild(trAdmin);
-                }
+                });
+            }
 
-                // 4. 성도용 공개 현황판 렌더링 (합산된 totalVotes 표시)
+            globalCandidates.forEach(candidate => {
+                const totalVotes = (candidate.voteCount || 0) + (candidate.manualVoteCount || 0);
+                const isElected = checkCandidateElected({ ...candidate, voteCount: totalVotes }, globalTotalVoters);
+                const badge = isElected ? `<span class="bg-green-500 text-white text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ml-1 sm:ml-2 shadow-sm animate-pulse">🎉 당선</span>` : '';
+                
                 const trPublic = document.createElement('tr');
                 trPublic.className = isElected ? "bg-green-50 border-b border-green-100" : "hover:bg-white border-b border-gray-100";
                 trPublic.innerHTML = `
@@ -1041,7 +1288,12 @@
             }
 
             filtered.forEach(candidate => {
-                const isElected = checkCandidateElected(candidate, globalTotalVoters);
+                const appVotes = candidate.voteCount || 0;
+                const manualVotes = candidate.manualVoteCount || 0;
+                const totalVotes = appVotes + manualVotes;
+                const tempCandidateForCalc = { ...candidate, voteCount: totalVotes };
+                
+                const isElected = checkCandidateElected(tempCandidateForCalc, globalTotalVoters);
                 const badge = isElected ? `<span class="bg-green-600 text-white text-xs font-bold px-2.5 py-1 rounded-full ml-3 shadow animate-pulse">🎉 당선 확정</span>` : '';
                 const tr = document.createElement('tr');
                 tr.className = isElected ? "bg-slate-700/60 border-b border-slate-700" : "border-b border-slate-700/50 hover:bg-slate-800/40";
@@ -1054,7 +1306,7 @@
                         </div>
                     </td>
                     <td class="py-3 px-3 text-center text-indigo-300 text-xs sm:text-sm hidden sm:table-cell">${getConditionDescription(candidate.position)}</td>
-                    <td class="py-3 px-3 text-right text-red-400 font-black text-base sm:text-xl">${candidate.voteCount}표</td>
+                    <td class="py-3 px-3 text-right text-red-400 font-black text-base sm:text-xl">${totalVotes}표</td>
                 `;
                 projResultsTbody.appendChild(tr);
             });
@@ -1069,7 +1321,11 @@
             }
 
             globalPositions.forEach(pos => {
-                const electedCands = globalCandidates.filter(c => c.position === pos.name && checkCandidateElected(c, globalTotalVoters));
+                const electedCands = globalCandidates.filter(c => {
+                    const total = (c.voteCount || 0) + (c.manualVoteCount || 0);
+                    const tempC = { ...c, voteCount: total };
+                    return c.position === pos.name && checkCandidateElected(tempC, globalTotalVoters);
+                });
                 
                 const card = document.createElement('div');
                 card.className = "bg-slate-800 border border-slate-700 rounded-2xl p-4 sm:p-6 shadow-xl";
@@ -1080,12 +1336,13 @@
                 } else {
                     candsHtml = '<div class="flex flex-wrap gap-3 mt-3">';
                     electedCands.forEach(c => {
+                        const totalVotes = (c.voteCount || 0) + (c.manualVoteCount || 0);
                         candsHtml += `
                             <div class="flex items-center bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 space-x-2.5">
                                 <img src="${c.photoUrl}" class="w-10 h-10 rounded-full object-cover border-2 border-green-500">
                                 <div>
                                     <p class="text-base font-black text-white">${c.name}</p>
-                                    <p class="text-[11px] text-green-400 font-bold">${c.voteCount}표 획득 (당선)</p>
+                                    <p class="text-[11px] text-green-400 font-bold">${totalVotes}표 획득 (당선)</p>
                                 </div>
                             </div>
                         `;
@@ -1104,148 +1361,22 @@
             });
         }
 
-        function renderPositionConfigAndTabs() {
-            const hierarchy = { '장로': 1, '장립집사': 2, '안수집사': 2, '집사': 3, '권사': 4, '회장': 5, '부회장': 6, '총무': 7, '서기': 8, '부서기': 9, '회계': 10, '부회계': 11 };
-            globalPositions.sort((a, b) => {
-                const rankA = hierarchy[a.name] || 99;
-                const rankB = hierarchy[b.name] || 99;
-                if (rankA !== rankB) return rankA - rankB;
-                return a.name.localeCompare(b.name);
-            });
-
-            configuredPositionsList.innerHTML = '';
-            candidatePositionSelect.innerHTML = '<option value="">-- 직책 선택 --</option>';
-            targetPositionSelect.innerHTML = '<option value="전체">전체 직책 동시 개시</option>';
-
-            if (globalPositions.length === 0) {
-                configuredPositionsList.innerHTML = '<li class="text-gray-400">등록된 직책이 없습니다.</li>';
-            } else {
-                globalPositions.forEach(pos => {
-                    const li = document.createElement('li');
-                    li.className = "flex justify-between items-center bg-slate-50 px-2 py-1 rounded border border-slate-200";
-                    let condText = pos.condition === 'two_thirds' ? '2/3 이상' : (pos.condition === 'majority' ? '과반수' : '다득표');
-                    li.innerHTML = `<span><strong>${pos.name}</strong> (정수: ${pos.quota}명 / ${condText})</span>
-                                    <button type="button" onclick="deletePosition('${pos.id}', '${pos.name}')" class="text-red-500 font-bold hover:text-red-700 px-1">삭제</button>`;
-                    configuredPositionsList.appendChild(li);
-
-                    const opt = document.createElement('option');
-                    opt.value = pos.name;
-                    opt.textContent = `${pos.name} (정수 ${pos.quota}명)`;
-                    candidatePositionSelect.appendChild(opt);
-
-                    const optTarget = document.createElement('option');
-                    optTarget.value = pos.name;
-                    optTarget.textContent = `${pos.name} 선거만 개시`;
-                    targetPositionSelect.appendChild(optTarget);
-                });
-            }
-
-            const positionNames = globalPositions.map(p => p.name);
-            const tabsData = ['전체', ...positionNames];
-
-            positionFilterTabs.innerHTML = '';
-            tabsData.forEach(pos => {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                const isActive = (currentPositionFilter === pos);
-                btn.className = isActive 
-                    ? "px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-blue-900 text-white shadow transition shrink-0" 
-                    : "px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-gray-200 text-gray-700 hover:bg-gray-300 transition shrink-0";
-                btn.textContent = pos === '전체' ? '전체 보기' : `${pos} 선거`;
-                btn.addEventListener('click', () => { currentPositionFilter = pos; renderCandidatesAndProjector(); });
-                positionFilterTabs.appendChild(btn);
-            });
-
-            projectorFilterTabs.innerHTML = '';
-            tabsData.forEach(pos => {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                const isActive = (projectorPositionFilter === pos);
-                btn.className = isActive ? "px-4 py-2 rounded-xl text-xs sm:text-sm font-black bg-indigo-600 text-white shadow-lg transition shrink-0" : "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition border border-slate-700 shrink-0";
-                btn.textContent = pos === '전체' ? '전체 보기' : `${pos} 명단`;
-                btn.addEventListener('click', () => { projectorPositionFilter = pos; renderCandidatesAndProjector(); });
-                projectorFilterTabs.appendChild(btn);
-            });
-        }
-
-        function renderCandidatesAndProjector() {
-            renderPositionConfigAndTabs();
-
-            candidatesGrid.innerHTML = '';
-            projectorGrid.innerHTML = '';
-
-            const filteredCandidates = globalCandidates.filter(c => currentPositionFilter === '전체' || c.position === currentPositionFilter);
-            const filteredProjector = globalCandidates.filter(c => projectorPositionFilter === '전체' || c.position === projectorPositionFilter);
-
-            let activeQuota = 10;
-            if (currentPositionFilter !== '전체') {
-                const found = globalPositions.find(p => p.name === currentPositionFilter);
-                if (found) activeQuota = found.quota;
-            }
-            selectionGuideline.textContent = currentPositionFilter === '전체' 
-                ? `※ 전체 보기 모드입니다.` 
-                : `※ [${currentPositionFilter}] 선거: 최대 ${activeQuota}명까지 선택하실 수 있습니다.`;
-
-            if (filteredCandidates.length === 0) {
-                candidatesGrid.innerHTML = '<p class="text-gray-500 col-span-full text-center py-8 font-medium">해당 직분에 등록된 후보자가 없습니다.</p>';
-            } else {
-                filteredCandidates.forEach((candidate) => {
-                    const photoSrc = candidate.photoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80";
-                    const label = document.createElement('label');
-                    label.className = "cursor-pointer border-2 border-gray-200 rounded-xl p-3 sm:p-4 flex items-center space-x-3 sm:space-x-4 hover:border-blue-500 hover:bg-blue-50 transition duration-200 bg-white shadow-xs";
-                    
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.name = 'vote-selection';
-                    checkbox.value = candidate.id;
-                    checkbox.checked = selectedVoteIds.has(candidate.id);
-                    checkbox.className = "w-5 h-5 sm:w-6 sm:h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0";
-                    checkbox.addEventListener('change', (e) => {
-                        if (e.target.checked) selectedVoteIds.add(candidate.id);
-                        else selectedVoteIds.delete(candidate.id);
-                    });
-
-                    const img = document.createElement('img');
-                    img.src = photoSrc;
-                    img.alt = candidate.name;
-                    img.className = "w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-slate-200 shrink-0";
-
-                    const div = document.createElement('div');
-                    div.className = "overflow-hidden";
-                    div.innerHTML = `
-                        <p class="text-base sm:text-lg font-bold text-gray-800 truncate">${candidate.name}</p>
-                        <p class="text-[11px] sm:text-xs text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-full inline-block mt-1">${candidate.position}</p>
-                    `;
-
-                    label.appendChild(checkbox);
-                    label.appendChild(img);
-                    label.appendChild(div);
-                    candidatesGrid.appendChild(label);
-                });
-            }
-
-            if (filteredProjector.length === 0) {
-                projectorGrid.innerHTML = '<p class="text-slate-400 col-span-full text-center py-12 text-xl font-bold">해당 직분에 등록된 후보자가 없습니다.</p>';
-            } else {
-                filteredProjector.forEach((candidate) => {
-                    const photoSrc = candidate.photoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80";
-                    const projDiv = document.createElement('div');
-                    projDiv.className = "bg-slate-800 border border-slate-700 rounded-2xl p-4 sm:p-6 flex flex-col items-center text-center shadow-2xl transform hover:scale-105 transition duration-300";
-                    projDiv.innerHTML = `
-                        <img src="${photoSrc}" alt="${candidate.name}" class="w-24 h-24 sm:w-32 sm:h-32 rounded-full object-cover border-4 border-indigo-500 shadow-lg mb-3 sm:mb-4">
-                        <span class="bg-indigo-900 text-indigo-200 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-2">${candidate.position} 후보</span>
-                        <h3 class="text-xl sm:text-2xl font-black text-white tracking-tight">${candidate.name}</h3>
-                    `;
-                    projectorGrid.appendChild(projDiv);
-                });
-            }
-
-            renderDashboards();
-            if(currentProjView === 'results') renderProjectorResultsView();
-            if(currentProjView === 'summary') renderProjectorSummaryView();
-        }
-
         function updateVoterScreenState() {
+            if (window.currentUserHasVoted) {
+                votingForm.classList.add('hidden');
+                votingWaitingNotice.classList.add('hidden');
+                votingClosedNotice.classList.add('hidden');
+                voterPinSection.classList.add('hidden');
+                votedMessage.classList.remove('hidden');
+                waitRound2Msg.classList.remove('hidden');
+                electionStatusBadge.className = "ml-2 text-xs bg-gray-500 text-white px-2 py-0.5 rounded font-bold";
+                electionStatusBadge.textContent = "투표 완료됨";
+                return; 
+            }
+
+            votedMessage.classList.add('hidden');
+            waitRound2Msg.classList.add('hidden');
+
             if (electionStatus === 'active') {
                 votingWaitingNotice.classList.add('hidden');
                 votingClosedNotice.classList.add('hidden');
@@ -1268,7 +1399,6 @@
                 votingClosedNotice.classList.add('hidden');
                 votingForm.classList.remove('hidden'); 
                 document.getElementById('submit-vote-btn').classList.add('hidden'); 
-                votedMessage.classList.add('hidden');
                 voterPinSection.classList.add('hidden');
                 electionStatusBadge.className = "ml-2 text-xs bg-amber-500 text-white px-2 py-0.5 rounded font-bold";
                 electionStatusBadge.textContent = "투표 대기 중 (후보 공지)";
@@ -1282,24 +1412,20 @@
             }
         }
 
-        function initPositionsListener() {
-            const posRef = collection(db, 'elections', MASTER_ELECTION_ID, 'positions');
-            if(positionsUnsub) positionsUnsub();
-            positionsUnsub = onSnapshot(posRef, (snapshot) => {
-                globalPositions = [];
-                snapshot.forEach(docSnap => globalPositions.push({ id: docSnap.id, ...docSnap.data() }));
-                renderPositionConfigAndTabs();
-            });
-        }
-
         function setupActiveElectionListeners(electionId, roundNum) {
             currentRoundNum = roundNum;
             roundBadge.textContent = roundNum === 2 ? "2차 결선 투표" : "1차 투표";
             voterRoundBadge.textContent = roundNum === 2 ? "(2차 결선)" : "";
             projRoundTitleBadge.textContent = roundNum === 2 ? "(2차 결선 투표)" : "(1차 투표)";
             
-            if(candidatesUnsub) candidatesUnsub();
-            if(voterRecordUnsub) voterRecordUnsub();
+            if(candidatesUnsub) {
+                candidatesUnsub();
+                candidatesUnsub = null;
+            }
+            if(voterRecordUnsub) {
+                voterRecordUnsub();
+                voterRecordUnsub = null;
+            }
 
             const candidatesRef = collection(db, 'elections', electionId, 'candidates');
             candidatesUnsub = onSnapshot(candidatesRef, (snapshot) => {
@@ -1322,14 +1448,23 @@
                 const voterRecordRef = doc(db, 'elections', electionId, 'voters', currentUid);
                 voterRecordUnsub = onSnapshot(voterRecordRef, (voterSnap) => {
                     if (voterSnap.exists() && voterSnap.data().hasVoted) {
-                        votingForm.classList.add('hidden');
-                        votingWaitingNotice.classList.add('hidden');
-                        votingClosedNotice.classList.add('hidden');
-                        votedMessage.classList.remove('hidden');
-                        waitRound2Msg.classList.remove('hidden');
+                        window.currentUserHasVoted = true;
+                    } else {
+                        window.currentUserHasVoted = false; 
                     }
+                    updateVoterScreenState();
                 });
             }
+        }
+
+        function initPositionsListener() {
+            const posRef = collection(db, 'elections', MASTER_ELECTION_ID, 'positions');
+            if(positionsUnsub) positionsUnsub();
+            positionsUnsub = onSnapshot(posRef, (snapshot) => {
+                globalPositions = [];
+                snapshot.forEach(docSnap => globalPositions.push({ id: docSnap.id, ...docSnap.data() }));
+                renderPositionConfigAndTabs();
+            });
         }
 
         function initMasterListener() {
@@ -1493,7 +1628,6 @@
                 loadRegistryMembers(); 
                 initMasterListener(); 
             } else if (isGuest) {
-                // [신규] QR 스캔으로 접속한 현장 투표자 자동 입장
                 loginBtn.classList.add('hidden');
                 loginSection.classList.add('hidden'); 
                 userInfoDiv.classList.remove('hidden');
@@ -1512,5 +1646,3 @@
             }
         });
     </script>
-</body>
-</html>
