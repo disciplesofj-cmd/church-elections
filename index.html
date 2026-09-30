@@ -287,7 +287,7 @@
                         🔒 전광판에 표시된 인증코드(PIN) 입력
                     </label>
                     <p class="text-xs text-red-500 mb-3 text-center">본당 현장에 참석하신 성도님만 투표를 제출할 수 있습니다.</p>
-                    <input type="tel" id="voter-pin-input" maxlength="4" placeholder="0000" class="w-32 text-center text-2xl font-black tracking-widest px-4 py-2 border-2 border-red-400 rounded-lg focus:border-red-600 focus:ring-red-600 bg-white shadow-inner">
+                    <input type="tel" id="voter-pin-input" maxlength="4" placeholder="0000" class="w-32 text-center text-2xl font-black tracking-[0.3em] pl-[0.3em] py-2 border-2 border-red-400 rounded-lg focus:border-red-600 focus:ring-red-600 bg-white shadow-inner">
                 </div>
 
                 <div class="flex justify-center">
@@ -356,7 +356,7 @@
 
             <div id="proj-pin-display-container" class="hidden flex-col items-center bg-red-600/20 border-2 border-red-500 rounded-3xl p-6 sm:p-8 shadow-2xl max-w-md w-full">
                 <p class="text-red-300 text-base sm:text-lg font-bold mb-1">🔒 현장 투표 제출용 인증 코드 (PIN)</p>
-                <p class="text-white text-6xl sm:text-7xl font-black tracking-[0.2em]" id="proj-big-pin">0000</p>
+                <p class="text-white text-6xl sm:text-7xl font-black text-center tracking-[0.2em] pl-[0.2em]" id="proj-big-pin">0000</p>
                 <p class="text-red-200 text-xs sm:text-sm mt-3 text-center">제출 버튼 위 빈칸에 위 4자리 숫자를 입력해 주십시오.</p>
             </div>
         </div>
@@ -549,6 +549,11 @@
 
         window.switchProjectorView = function(viewName) {
             currentProjView = viewName;
+            
+            // 🌟 핵심 수정: QR/PIN 화면이 사라지지 않고 겹치는 현상을 해결하는 초기화 코드
+            projViewQrPin.style.display = ''; 
+            
+            // 1. 일단 모든 화면을 다 숨깁니다.
             projViewQrPin.classList.add('hidden');
             projViewCandidates.classList.add('hidden');
             projViewResults.classList.add('hidden');
@@ -557,14 +562,15 @@
             const inactiveClass = "px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-300 hover:text-white transition";
             const activeClass = "px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold bg-indigo-600 text-white transition";
             
+            // 2. 탭 버튼 색상 모두 초기화
             projTabQrPin.className = inactiveClass;
             projTabCandidates.className = inactiveClass;
             projTabResults.className = inactiveClass;
             projTabSummary.className = inactiveClass;
 
+            // 3. 클릭한 탭의 화면만 다시 나타나게 합니다.
             if (viewName === 'qrpin') {
                 projViewQrPin.classList.remove('hidden');
-                projViewQrPin.style.display = 'flex'; 
                 projTabQrPin.className = activeClass;
             } else if (viewName === 'candidates') {
                 projViewCandidates.classList.remove('hidden');
