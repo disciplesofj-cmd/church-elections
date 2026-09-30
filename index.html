@@ -525,7 +525,7 @@
             const container = document.getElementById('qrcode-container');
             container.innerHTML = ""; // 기존에 그려진 QR 지우기 (초기화)
             
-            const currentUrl = window.location.href.split('?')[0]; 
+            const currentUrl = window.location.href.split('?')[0] + "?guest=true";
             
             // QRCode.js 라이브러리를 사용해 컨테이너 안에 깔끔하게 직접 그립니다.
             new QRCode(container, {
@@ -686,17 +686,15 @@
             } catch (err) { console.error(err); }
         }
 
-        window.adjustVoteCount = async function(candidateId, amount) {
+        window.setVoteCount = async function(candidateId, newCount) {
             try {
-                const candidateRef = doc(db, 'elections', globalActiveElectionId, 'candidates', candidateId);
-                const candSnap = await getDoc(candidateRef);
-                if (!candSnap.exists()) return;
+                const count = parseInt(newCount, 10);
+                if (isNaN(count) || count < 0) return;
                 
-                const currentVotes = candSnap.data().voteCount || 0;
-                const newVotes = Math.max(0, currentVotes + amount);
-                await updateDoc(candidateRef, { voteCount: newVotes });
+                const candidateRef = doc(db, 'elections', globalActiveElectionId, 'candidates', candidateId);
+                await updateDoc(candidateRef, { voteCount: count });
             } catch (err) {
-                alert("득표수 보정 중 오류가 발생했습니다: " + err.message);
+                alert("득표수 수정 중 오류가 발생했습니다: " + err.message);
             }
         };
 
@@ -948,12 +946,11 @@
                         </td>
                         <td class="py-3 px-3 text-xs sm:text-sm text-center text-indigo-700 font-medium hidden sm:table-cell">${conditionDesc}</td>
                         <td class="py-3 px-3 text-xs sm:text-sm text-right">
-                            <div class="flex items-center justify-end space-x-1 sm:space-x-2">
-                                <span class="text-red-600 font-bold text-sm sm:text-lg">${candidate.voteCount}표</span>
-                                <div class="flex space-x-0.5 sm:space-x-1">
-                                    <button type="button" onclick="adjustVoteCount('${candidate.id}', 1)" class="bg-blue-100 hover:bg-blue-200 text-blue-800 text-[11px] px-1.5 py-1 rounded font-bold" title="+1">+1</button>
-                                    <button type="button" onclick="adjustVoteCount('${candidate.id}', -1)" class="bg-gray-100 hover:bg-gray-200 text-gray-800 text-[11px] px-1.5 py-1 rounded font-bold" title="-1">-1</button>
-                                </div>
+                            <div class="flex items-center justify-end space-x-2">
+                                <input type="number" min="0" value="${candidate.voteCount}" 
+                                    onchange="setVoteCount('${candidate.id}', this.value)" 
+                                    class="w-16 sm:w-20 px-2 py-1 border border-gray-300 rounded text-red-600 font-bold text-right focus:outline-none focus:border-red-500 shadow-inner">
+                                <span class="text-gray-500 font-bold text-xs">표</span>
                             </div>
                         </td>
                     `;
@@ -1275,8 +1272,15 @@
                 renderCandidatesAndProjector();
             });
 
-            if(auth.currentUser) {
-                const voterRecordRef = doc(db, 'elections', electionId, 'voters', auth.currentUser.uid);
+            let currentUid = null;
+            if (auth.currentUser) {
+                currentUid = auth.currentUser.uid;
+            } else if (new URLSearchParams(window.location.search).get('guest') === 'true') {
+                currentUid = localStorage.getItem('tria_guest_uid');
+            }
+
+            if(currentUid) {
+                const voterRecordRef = doc(db, 'elections', electionId, 'voters', currentUid);
                 voterRecordUnsub = onSnapshot(voterRecordRef, (voterSnap) => {
                     if (voterSnap.exists() && voterSnap.data().hasVoted) {
                         votingForm.classList.add('hidden');
@@ -1393,7 +1397,16 @@
 
             try {
                 const batch = writeBatch(db);
-                const userUid = auth.currentUser.uid;
+                let userUid = null;
+                if (auth.currentUser) {
+                    userUid = auth.currentUser.uid;
+                } else {
+                    userUid = localStorage.getItem('tria_guest_uid');
+                    if (!userUid) {
+                        userUid = 'guest_' + Math.random().toString(36).substr(2, 9);
+                        localStorage.setItem('tria_guest_uid', userUid);
+                    }
+                }
                 const electionDocRef = doc(db, 'elections', globalActiveElectionId);
                 const masterDocRef = doc(db, 'elections', MASTER_ELECTION_ID);
 
@@ -1422,6 +1435,8 @@
         });
 
         onAuthStateChanged(auth, async (user) => {
+            const isGuest = new URLSearchParams(window.location.search).get('guest') === 'true';
+
             if (user) {
                 loginBtn.classList.add('hidden');
                 loginSection.classList.add('hidden'); 
@@ -1438,7 +1453,16 @@
                 voterSection.classList.remove('hidden');
                 loadRegistryMembers(); 
                 initMasterListener(); 
-
+            } else if (isGuest) {
+                // [신규] QR 스캔으로 접속한 현장 투표자 자동 입장
+                loginBtn.classList.add('hidden');
+                loginSection.classList.add('hidden'); 
+                userInfoDiv.classList.remove('hidden');
+                userNameDisplay.textContent = "현장 투표자";
+                
+                adminSection.classList.add('hidden');
+                voterSection.classList.remove('hidden');
+                initMasterListener(); 
             } else {
                 loginSection.classList.add('hidden');
                 loginSection.classList.remove('hidden');
