@@ -686,15 +686,17 @@
             } catch (err) { console.error(err); }
         }
 
-        window.setVoteCount = async function(candidateId, newCount) {
+        // [신규] 수기 표 전용 저장 함수
+        window.setManualVoteCount = async function(candidateId, newCount) {
             try {
                 const count = parseInt(newCount, 10);
                 if (isNaN(count) || count < 0) return;
                 
                 const candidateRef = doc(db, 'elections', globalActiveElectionId, 'candidates', candidateId);
-                await updateDoc(candidateRef, { voteCount: count });
+                // 기존 voteCount(앱 표)는 건드리지 않고, manualVoteCount(수기 표)만 업데이트합니다.
+                await updateDoc(candidateRef, { manualVoteCount: count });
             } catch (err) {
-                alert("득표수 수정 중 오류가 발생했습니다: " + err.message);
+                alert("수기 득표수 수정 중 오류가 발생했습니다: " + err.message);
             }
         };
 
@@ -728,14 +730,21 @@
             }
         };
 
-        window.downloadExcelResults = function() {
+            window.downloadExcelResults = function() {
             if (globalCandidates.length === 0) return alert("다운로드할 개표 데이터가 없습니다.");
             
-            let csv = '\uFEFF직책,후보자성명,득표수,당선여부,당선조건\n';
+            let csv = '\uFEFF직책,후보자성명,앱투표,수기투표,최종총득표,당선여부,당선조건\n';
             globalCandidates.forEach(c => {
-                const isElected = checkCandidateElected(c, globalTotalVoters) ? '당선 확정' : '낙선';
+                const appVotes = c.voteCount || 0;
+                const manualVotes = c.manualVoteCount || 0;
+                const totalVotes = appVotes + manualVotes;
+                
+                // 엑셀 다운로드 시 당선 판정은 합산된 총 득표수(totalVotes)를 기준으로 판단
+                const tempCandidateForCalc = { ...c, voteCount: totalVotes };
+                const isElected = checkCandidateElected(tempCandidateForCalc, globalTotalVoters) ? '당선 확정' : '낙선';
                 const cond = getConditionDescription(c.position);
-                csv += `"${c.position}","${c.name}",${c.voteCount},"${isElected}","${cond}"\n`;
+                
+                csv += `"${c.position}","${c.name}",${appVotes},${manualVotes},${totalVotes},"${isElected}","${cond}"\n`;
             });
 
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -882,7 +891,13 @@
                     if (file) photoUrl = await convertFileToBase64(file);
 
                     const candidatesRef = collection(db, 'elections', globalActiveElectionId, 'candidates');
-                    await addDoc(candidatesRef, { name, position, photoUrl, voteCount: 0 });
+                    await addDoc(candidatesRef, { 
+                        name, 
+                        position, 
+                        photoUrl, 
+                        voteCount: 0, 
+                        manualVoteCount: 0 // 수기 득표수 분리
+                    });
                     
                     alert(`[${position}] ${name} 후보 등록 완료`);
                     candidateNameInput.value = ''; 
@@ -932,10 +947,18 @@
             }
 
             globalCandidates.forEach(candidate => {
-                const isElected = checkCandidateElected(candidate, globalTotalVoters);
+                // 1. 합산 계산 (앱 투표수 + 수기 투표수)
+                const appVotes = candidate.voteCount || 0;
+                const manualVotes = candidate.manualVoteCount || 0;
+                const totalVotes = appVotes + manualVotes;
+                const tempCandidateForCalc = { ...candidate, voteCount: totalVotes };
+                
+                // 2. 당선 판정은 합산된 최종 득표수(totalVotes) 기준
+                const isElected = checkCandidateElected(tempCandidateForCalc, globalTotalVoters);
                 const badge = isElected ? `<span class="bg-green-500 text-white text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ml-1 sm:ml-2 shadow-sm animate-pulse">🎉 당선</span>` : '';
                 const conditionDesc = getConditionDescription(candidate.position);
                 
+                // 3. 관리자용 테이블 렌더링
                 if (isUserAdmin) {
                     const trAdmin = document.createElement('tr');
                     trAdmin.className = isElected ? "bg-green-50 border-b border-green-100" : "hover:bg-gray-50 border-b border-gray-100";
@@ -946,17 +969,33 @@
                         </td>
                         <td class="py-3 px-3 text-xs sm:text-sm text-center text-indigo-700 font-medium hidden sm:table-cell">${conditionDesc}</td>
                         <td class="py-3 px-3 text-xs sm:text-sm text-right">
-                            <div class="flex items-center justify-end space-x-2">
-                                <input type="number" min="0" value="${candidate.voteCount}" 
-                                    onchange="setVoteCount('${candidate.id}', this.value)" 
-                                    class="w-16 sm:w-20 px-2 py-1 border border-gray-300 rounded text-red-600 font-bold text-right focus:outline-none focus:border-red-500 shadow-inner">
-                                <span class="text-gray-500 font-bold text-xs">표</span>
+                            <div class="flex items-center justify-end space-x-1 sm:space-x-3">
+                                <!-- 앱 득표수 (읽기 전용) -->
+                                <div class="flex flex-col items-center">
+                                    <span class="text-[10px] text-gray-400">앱 투표</span>
+                                    <span class="text-blue-600 font-bold text-sm sm:text-base">${appVotes}</span>
+                                </div>
+                                <span class="text-gray-300 font-bold">+</span>
+                                <!-- 수기 투표수 (입력 가능) -->
+                                <div class="flex flex-col items-center">
+                                    <span class="text-[10px] text-gray-400">종이 수기</span>
+                                    <input type="number" min="0" value="${manualVotes}" 
+                                        onchange="setManualVoteCount('${candidate.id}', this.value)" 
+                                        class="w-12 sm:w-16 px-1 py-1 border border-gray-300 rounded text-gray-700 font-bold text-center focus:outline-none focus:border-red-500 shadow-inner text-sm bg-yellow-50">
+                                </div>
+                                <span class="text-gray-300 font-bold">=</span>
+                                <!-- 최종 합산 -->
+                                <div class="flex flex-col items-center ml-2">
+                                    <span class="text-[10px] text-red-500 font-bold">최종</span>
+                                    <span class="text-red-600 font-black text-base sm:text-xl">${totalVotes}</span>
+                                </div>
                             </div>
                         </td>
                     `;
                     resultsTableBody.appendChild(trAdmin);
                 }
 
+                // 4. 성도용 공개 현황판 렌더링 (합산된 totalVotes 표시)
                 const trPublic = document.createElement('tr');
                 trPublic.className = isElected ? "bg-green-50 border-b border-green-100" : "hover:bg-white border-b border-gray-100";
                 trPublic.innerHTML = `
@@ -964,7 +1003,7 @@
                     <td class="py-2.5 px-3 text-xs font-bold text-gray-800">
                         <div class="flex items-center">${candidate.name} ${badge}</div>
                     </td>
-                    <td class="py-2.5 px-3 text-xs text-right text-red-600 font-bold">${candidate.voteCount}표</td>
+                    <td class="py-2.5 px-3 text-xs text-right text-red-600 font-bold">${totalVotes}표</td>
                 `;
                 publicResultsTableBody.appendChild(trPublic);
             });
