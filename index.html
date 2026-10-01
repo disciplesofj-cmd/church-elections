@@ -157,38 +157,45 @@
                 <!-- 3. 투표 개시 및 통제 패널 -->
                 <div class="bg-gray-50 p-4 rounded border border-gray-200 flex flex-col justify-between space-y-4 col-span-1 md:col-span-2">
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div class="flex flex-col bg-white p-2.5 rounded-xl border border-gray-300 justify-center">
+                        <div class="flex flex-col bg-white p-2.5 rounded-xl border border-gray-300 justify-center shadow-sm">
                             <div class="flex items-center justify-between mb-1.5 px-1">
                                 <span class="text-xs font-bold text-gray-700">개시할 직책:</span>
                                 <select id="target-position-select" class="text-xs font-bold px-2 py-1 border rounded bg-gray-50 text-blue-900 max-w-[130px] sm:max-w-none">
                                     <option value="전체">전체 동시 개시</option>
                                 </select>
                             </div>
-                            <button id="start-election-btn" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-3 rounded-lg shadow font-bold transition text-xs flex items-center justify-center">
+                            <!-- [수정] 높이를 2배로 키우고 박스 안을 꽉 채워 균형을 맞춥니다 -->
+                            <button id="start-election-btn" class="w-full flex-1 bg-green-600 hover:bg-green-700 text-white py-4 sm:py-5 px-3 mt-1 rounded-lg shadow-md font-black transition text-sm sm:text-base flex items-center justify-center">
                                 투표 개시 (시작)
                             </button>
                         </div>
 
+                        <!-- [수정] 2. 마감 버튼 (디자인 유지) -->
                         <button id="stop-election-btn" class="w-full bg-amber-600 hover:bg-amber-700 text-white py-3 px-4 rounded-xl shadow font-bold transition text-sm flex items-center justify-center">
                             투표 마감 (종료)
                         </button>
                         
-                        <div class="flex flex-col bg-purple-50 p-2.5 rounded-xl border border-purple-300 justify-center col-span-1 sm:col-span-3 mt-2 shadow-sm">
-                            <p class="text-[11px] font-black text-purple-800 mb-1.5">🔄 라운드 결산 및 다음 투표(결선) 준비</p>
-                            <div class="flex flex-wrap items-center gap-2 mb-2">
-                                <span class="text-[10px] font-bold text-gray-700">결선 대상:</span>
-                                <select id="runoff-target-position" class="text-xs font-bold px-2 py-1 border rounded bg-white text-purple-900 shadow-inner">
-                                    <option value="전체">모든 직책 동시 결선</option>
-                                </select>
-                                <span class="text-[10px] font-bold text-gray-700 ml-1">배수:</span>
-                                <select id="round2-multiplier-select" class="text-xs font-bold px-2 py-1 border rounded bg-white text-purple-900 shadow-inner">
-                                    <option value="1.5">1.5배수</option>
-                                    <option value="2" selected>2배수</option>
-                                    <option value="3">3배수</option>
-                                </select>
+                        <!-- [수정] 3. 마감 버튼 바로 옆으로 올라온 결산 패널 -->
+                        <div class="flex flex-col bg-purple-50 p-2.5 rounded-xl border border-purple-300 justify-center shadow-sm">
+                            <p class="text-[11px] font-black text-purple-800 mb-1.5 text-center">🔄 라운드 결산 및 결선 준비</p>
+                            <div class="flex flex-col gap-1.5 mb-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[10px] font-bold text-gray-700">결선 대상:</span>
+                                    <select id="runoff-target-position" class="text-xs font-bold px-1 py-1 border rounded bg-white text-purple-900 shadow-inner flex-1 ml-2">
+                                        <option value="전체">모든 직책</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[10px] font-bold text-gray-700">진출 배수:</span>
+                                    <select id="round2-multiplier-select" class="text-xs font-bold px-1 py-1 border rounded bg-white text-purple-900 shadow-inner flex-1 ml-2">
+                                        <option value="1.5">1.5배수</option>
+                                        <option value="2" selected>2배수</option>
+                                        <option value="3">3배수</option>
+                                    </select>
+                                </div>
                             </div>
-                            <button id="start-round2-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-3 rounded-lg shadow font-bold transition text-[11px] sm:text-xs flex items-center justify-center">
-                                현재 당선자 확정 및 다음 라운드(결선) 진행
+                            <button id="start-round2-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-1.5 px-2 rounded-lg shadow font-bold transition text-[11px] flex items-center justify-center">
+                                당선 확정 및 2차 생성
                             </button>
                         </div>
                     </div>
@@ -398,22 +405,12 @@
             <div id="projector-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6 w-full my-auto"></div>
         </div>
 
-        <div id="proj-view-results" class="hidden flex flex-col flex-grow max-w-5xl mx-auto w-full">
-            <div id="proj-results-filter-tabs" class="flex flex-wrap gap-2 justify-center mb-6"></div>
-            <div class="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl p-4 sm:p-6">
-                <table class="min-w-full text-sm sm:text-lg">
-                    <thead>
-                        <tr class="border-b border-slate-700 text-slate-400 text-xs sm:text-sm">
-                            <th class="py-2.5 px-3 text-left">직책</th>
-                            <th class="py-2.5 px-3 text-left">후보자 성명</th>
-                            <th class="py-2.5 px-3 text-center hidden sm:table-cell">당선 조건</th>
-                            <th class="py-2.5 px-3 text-right">득표수</th>
-                        </tr>
-                    </thead>
-                    <tbody id="proj-results-tbody" class="divide-y divide-slate-700">
-                    </tbody>
-                </table>
-            </div>
+        <!-- 전광판 [개표 결과] 화면 (사진 그리드 방식으로 전면 개편) -->
+        <div id="proj-view-results" class="hidden flex flex-col flex-grow w-full max-w-7xl mx-auto">
+            <div id="proj-results-filter-tabs" class="flex flex-wrap gap-2 justify-center mb-8 mt-4"></div>
+            
+            <!-- 테이블 대신, 직분별 타이틀과 후보자 사진이 들어갈 빈 캔버스 -->
+            <div id="proj-results-grid" class="w-full my-auto flex flex-col px-4 sm:px-0"></div>
         </div>
 
         <div id="proj-view-summary" class="hidden flex flex-col flex-grow max-w-6xl mx-auto w-full">
@@ -872,8 +869,8 @@
                     votersSnap.forEach(v => batch.delete(v.ref));
 
                     // 선거 중앙 통제실 다음 라운드로 업데이트
-                    batch.update(doc(db, 'elections', MASTER_ELECTION_ID), {
-                        totalVoters: 0, round: currentRoundNum + 1, status: 'ready'
+                   batch.update(doc(db, 'elections', MASTER_ELECTION_ID), {
+                        round: currentRoundNum + 1, status: 'ready'
                     });
 
                     await batch.commit();
@@ -1331,7 +1328,7 @@
             else publicResultsContainer.classList.add('hidden');
         }
 
-        function renderProjectorResultsView() {
+       function renderProjectorResultsView() {
             const positionNames = globalPositions.map(p => p.name);
             const tabsData = ['전체', ...positionNames];
 
@@ -1341,49 +1338,86 @@
                 btn.type = 'button';
                 const isActive = (projectorResultFilter === pos);
                 btn.className = isActive 
-                    ? "px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-black bg-indigo-600 text-white shadow transition" 
-                    : "px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 text-slate-300 hover:text-slate-700 transition border border-slate-700";
+                    ? "px-5 py-2.5 rounded-xl text-sm sm:text-base font-black bg-indigo-600 text-white shadow-lg transition shrink-0" 
+                    : "px-5 py-2.5 rounded-xl text-sm sm:text-base font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition border border-slate-700 shrink-0";
                 btn.textContent = pos === '전체' ? '전체 보기' : `${pos} 결과`;
                 btn.addEventListener('click', () => { projectorResultFilter = pos; renderProjectorResultsView(); });
                 projResultsFilterTabs.appendChild(btn);
             });
 
-            projResultsTbody.innerHTML = '';
+            const resultsGridContainer = document.getElementById('proj-results-grid');
+            if(!resultsGridContainer) return;
+            resultsGridContainer.innerHTML = '';
+
             const filtered = globalCandidates.filter(c => projectorResultFilter === '전체' || c.position === projectorResultFilter);
 
             if (filtered.length === 0) {
-                projResultsTbody.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-slate-400">등록된 후보가 없습니다.</td></tr>';
+                resultsGridContainer.innerHTML = '<p class="text-slate-400 col-span-full text-center py-12 text-xl font-bold">등록된 개표 결과가 없습니다.</p>';
                 return;
             }
 
+            let currentProjHeader = "";
+            let currentGrid = null;
+
             filtered.forEach(candidate => {
+                // 직책이 바뀔 때마다 타이틀(당선조건)과 새로운 그리드 생성
+                if (currentProjHeader !== candidate.position) {
+                    currentProjHeader = candidate.position;
+                    const conditionText = getConditionDescription(candidate.position);
+                    
+                    const header = document.createElement('div');
+                    header.className = "w-full mt-8 mb-6 border-b-2 border-indigo-500 pb-3 flex flex-col sm:flex-row sm:items-end justify-between";
+                    header.innerHTML = `
+                        <h2 class="text-3xl sm:text-4xl font-black text-indigo-300 tracking-tight">📊 ${candidate.position} 개표 결과</h2>
+                        <span class="text-lg sm:text-xl font-bold text-yellow-400 bg-slate-800 px-4 py-1.5 rounded-xl mt-3 sm:mt-0 shadow-inner">당선 조건: ${conditionText}</span>
+                    `;
+                    resultsGridContainer.appendChild(header);
+
+                    currentGrid = document.createElement('div');
+                    currentGrid.className = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 sm:gap-8 w-full";
+                    resultsGridContainer.appendChild(currentGrid);
+                }
+
                 const appVotes = candidate.voteCount || 0;
                 const manualVotes = candidate.manualVoteCount || 0;
                 const totalVotes = appVotes + manualVotes;
                 const tempCandidateForCalc = { ...candidate, voteCount: totalVotes };
                 
                 const isElected = checkCandidateElected(tempCandidateForCalc, globalTotalVoters);
-                const roundTag = candidate.electedRound ? `${candidate.electedRound}차 ` : '';
-                const badge = isElected ? `<span class="bg-green-600 text-white text-xs font-bold px-2.5 py-1 rounded-full ml-3 shadow animate-pulse">🎉 ${roundTag}당선 확정</span>` : '';
-                const tr = document.createElement('tr');
-                tr.className = isElected ? "bg-slate-700/60 border-b border-slate-700" : "border-b border-slate-700/50 hover:bg-slate-800/40";
-                tr.innerHTML = `
-                    <td class="py-3 px-3 text-slate-300 text-xs sm:text-sm font-medium">${candidate.position}</td>
-                    <td class="py-3 px-3 text-white font-bold text-sm sm:text-base">
-                        <div class="flex items-center">
-                            <img src="${candidate.photoUrl}" class="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover mr-2.5 border border-slate-600">
-                            ${candidate.name} ${badge}
+                const photoSrc = candidate.photoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80";
+                
+                const bgClass = isElected ? "bg-green-900/60 border-green-500" : "bg-slate-800 border-slate-700";
+                const borderClass = isElected ? "border-green-400" : "border-slate-500";
+                const nameColor = isElected ? "text-green-300" : "text-white";
+                const voteColor = isElected ? "text-green-400" : "text-red-400";
+                
+                // 당선자용 뱃지
+                const badge = isElected ? `<span class="absolute -top-4 -right-4 bg-green-500 text-white text-sm sm:text-base font-black px-4 py-2 rounded-full shadow-2xl animate-pulse z-10 border-4 border-slate-900">🎉 당선</span>` : '';
+                
+                const projDiv = document.createElement('div');
+                // 당선된 사람은 조금 더 크고 입체감 있게 강조
+                projDiv.className = `${bgClass} border-2 rounded-3xl p-5 sm:p-6 flex flex-col items-center text-center shadow-xl relative transform transition duration-300 ${isElected ? 'scale-105 z-10 shadow-green-900/50' : 'hover:scale-105'}`;
+                projDiv.innerHTML = `
+                    ${badge}
+                    <img src="${photoSrc}" alt="${candidate.name}" class="w-24 h-24 sm:w-32 sm:h-32 rounded-full object-cover border-4 ${borderClass} shadow-md mb-4">
+                    <h3 class="text-2xl sm:text-3xl font-black ${nameColor} tracking-tight mb-4">${candidate.name}</h3>
+                    
+                    <div class="w-full bg-slate-900 rounded-2xl py-3 sm:py-4 border border-slate-700 shadow-inner flex flex-col items-center justify-center">
+                        <span class="text-xs sm:text-sm text-slate-400 font-bold mb-1">최종 득표수</span>
+                        <div class="flex items-baseline">
+                            <span class="text-4xl sm:text-5xl font-black ${voteColor} tracking-tighter">${totalVotes}</span>
+                            <span class="text-base sm:text-lg text-slate-500 ml-1.5 font-bold">표</span>
                         </div>
-                    </td>
-                    <td class="py-3 px-3 text-center text-indigo-300 text-xs sm:text-sm hidden sm:table-cell">${getConditionDescription(candidate.position)}</td>
-                    <td class="py-3 px-3 text-right text-red-400 font-black text-base sm:text-xl">${totalVotes}표</td>
+                    </div>
                 `;
-                projResultsTbody.appendChild(tr);
+                currentGrid.appendChild(projDiv);
             });
         }
 
         // 🌟 [핵심] 1차 당선순, 2차 당선순 정렬 반영
-        function renderProjectorSummaryView() {
+       function renderProjectorSummaryView() {
+            // [디자인 개편] 기존의 좁은 2단 카드를 풀스크린 세로 나열형으로 강제 변경
+            projSummaryGrid.className = "flex flex-col w-full"; 
             projSummaryGrid.innerHTML = '';
 
             if (globalPositions.length === 0) {
@@ -1405,37 +1439,54 @@
                     return vB - vA;
                 });
                 
-                const card = document.createElement('div');
-                card.className = "bg-slate-800 border border-slate-700 rounded-2xl p-4 sm:p-6 shadow-xl";
+                const section = document.createElement('div');
+                section.className = "w-full mb-12"; 
+
+                // 직분별 축하 타이틀
+                const header = document.createElement('div');
+                header.className = "w-full mb-6 border-b-2 border-yellow-500 pb-3 flex flex-col sm:flex-row sm:items-end justify-between";
+                header.innerHTML = `
+                    <h2 class="text-3xl sm:text-4xl font-black text-yellow-400 tracking-tight">👑 ${pos.name} 최종 당선자</h2>
+                    <span class="text-lg sm:text-xl font-bold text-white bg-slate-800 border border-slate-600 px-4 py-1.5 rounded-xl mt-3 sm:mt-0 shadow-inner">확정 인원: ${electedCands.length} / ${pos.quota}명</span>
+                `;
+                section.appendChild(header);
                 
-                let candsHtml = '';
                 if (electedCands.length === 0) {
-                    candsHtml = '<p class="text-slate-500 italic text-sm">아직 당선 확정된 인원이 없습니다.</p>';
+                    const emptyMsg = document.createElement('p');
+                    emptyMsg.className = "text-slate-400 italic text-xl text-center py-8 bg-slate-800/50 rounded-2xl border border-slate-700";
+                    emptyMsg.textContent = "아직 당선 확정된 인원이 없습니다.";
+                    section.appendChild(emptyMsg);
                 } else {
-                    candsHtml = '<div class="flex flex-wrap gap-3 mt-3">';
+                    // 당선자들을 크게 보여줄 사진 그리드
+                    const grid = document.createElement('div');
+                    grid.className = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 sm:gap-8 w-full";
+                    
                     electedCands.forEach(c => {
-                        const roundTag = c.electedRound ? `${c.electedRound}차` : '';
-                        candsHtml += `
-                            <div class="flex items-center bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 space-x-2.5">
-                                <img src="${c.photoUrl}" class="w-10 h-10 rounded-full object-cover border-2 border-green-500">
-                                <div>
-                                    <p class="text-base font-black text-white">${c.name}</p>
-                                    <p class="text-[11px] text-green-400 font-bold">${c.electedVotes || 0}표 (${roundTag} 당선)</p>
+                        const roundTag = c.electedRound ? `${c.electedRound}차 ` : '';
+                        const photoSrc = c.photoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80";
+                        const votes = c.electedVotes || 0;
+
+                        const candCard = document.createElement('div');
+                        candCard.className = "bg-gradient-to-b from-yellow-500/20 to-slate-800 border-2 border-yellow-400 rounded-3xl p-5 sm:p-6 flex flex-col items-center text-center shadow-2xl relative transform hover:scale-105 transition duration-300";
+                        
+                        candCard.innerHTML = `
+                            <span class="absolute -top-4 -right-4 bg-yellow-500 text-black text-sm sm:text-base font-black px-4 py-2 rounded-full shadow-2xl animate-pulse z-10 border-4 border-slate-900">🎉 ${roundTag}당선</span>
+                            <img src="${photoSrc}" alt="${c.name}" class="w-24 h-24 sm:w-32 sm:h-32 rounded-full object-cover border-4 border-yellow-400 shadow-lg mb-4">
+                            <h3 class="text-2xl sm:text-3xl font-black text-white tracking-tight mb-4">${c.name}</h3>
+                            
+                            <div class="w-full bg-slate-900/80 rounded-2xl py-3 sm:py-4 border border-yellow-500/30 shadow-inner flex flex-col items-center justify-center">
+                                <span class="text-xs sm:text-sm text-yellow-200/70 font-bold mb-1">최종 획득 표</span>
+                                <div class="flex items-baseline">
+                                    <span class="text-4xl sm:text-5xl font-black text-yellow-400 tracking-tighter">${votes}</span>
+                                    <span class="text-base sm:text-lg text-yellow-200/50 ml-1.5 font-bold">표</span>
                                 </div>
                             </div>
                         `;
+                        grid.appendChild(candCard);
                     });
-                    candsHtml += '</div>';
+                    section.appendChild(grid);
                 }
-
-                card.innerHTML = `
-                    <div class="flex justify-between items-center border-b border-slate-700 pb-3 mb-3">
-                        <h4 class="text-lg font-bold text-indigo-300">${pos.name} <span class="text-xs font-normal text-slate-400">(정수: ${pos.quota}명)</span></h4>
-                        <span class="text-xs bg-slate-900 px-2.5 py-1 rounded text-slate-300 font-semibold">당선자 ${electedCands.length}/${pos.quota}명</span>
-                    </div>
-                    ${candsHtml}
-                `;
-                projSummaryGrid.appendChild(card);
+                projSummaryGrid.appendChild(section);
             });
         }
 
@@ -1630,7 +1681,9 @@
                 }
                 
                 batch.set(doc(db, 'elections', MASTER_ELECTION_ID, 'voters', userUid), { hasVoted: true, votedAt: serverTimestamp() });
-                batch.update(doc(db, 'elections', MASTER_ELECTION_ID), { totalVoters: increment(1) });
+                
+                // [수정] 투표 제출 시 총 투표자 수(분모)가 1씩 멋대로 올라가는 로직을 삭제했습니다.
+                // 이제 서기가 수동으로 확정한 기준점이 기권/미투표와 상관없이 확고하게 유지됩니다.
 
                 selectedVoteIds.forEach(candidateId => {
                     batch.update(doc(db, 'elections', MASTER_ELECTION_ID, 'candidates', candidateId), { voteCount: increment(1) });
