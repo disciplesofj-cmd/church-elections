@@ -104,9 +104,18 @@
                                 <option value="">-- 성도 선택 (직접 입력 가능) --</option>
                             </select>
                         </div>
-                        <div>
-                            <label for="candidate-name" class="block text-xs font-bold text-gray-700 mb-1">후보자 성명</label>
-                            <input type="text" id="candidate-name" required placeholder="성함 입력" class="w-full px-3 py-2 border rounded-md text-sm bg-white">
+                        <div class="grid grid-cols-3 gap-2">
+                            <div class="col-span-2">
+                                <label for="candidate-name" class="block text-xs font-bold text-gray-700 mb-1">후보자 성명</label>
+                                <input type="text" id="candidate-name" required placeholder="성함 입력" class="w-full px-3 py-2 border rounded-md text-sm bg-white">
+                            </div>
+                            <div class="col-span-1">
+                                <label for="candidate-gender" class="block text-xs font-bold text-gray-700 mb-1">성별 (기본사진)</label>
+                                <select id="candidate-gender" class="w-full px-3 py-2 border rounded-md text-sm bg-white font-bold text-gray-700">
+                                    <option value="male">남성</option>
+                                    <option value="female">여성</option>
+                                </select>
+                            </div>
                         </div>
                         <div>
                             <label for="candidate-position-select" class="block text-xs font-bold text-gray-700 mb-1">선거 직책 선택</label>
@@ -352,13 +361,29 @@
             </button>
         </div>
         
-        <!-- 투표 접속 안내 (QR 코드 렌더링 박스) -->
-        <div id="proj-view-qrpin" class="hidden flex flex-col items-center justify-center flex-grow py-8">
-            <h3 class="text-3xl sm:text-4xl font-black text-amber-400 mb-3 text-center">스마트폰 카메라로 아래 QR을 스캔해 주세요</h3>
-            <p class="text-slate-300 text-lg sm:text-xl mb-8 text-center">선거 플랫폼에 접속 후 투표를 진행하실 수 있습니다.</p>
+        <!-- 투표 접속 안내 (QR 코드 렌더링 박스 및 시각적 행동 안내) -->
+        <div id="proj-view-qrpin" class="hidden flex flex-col items-center justify-center flex-grow py-8 w-full max-w-4xl mx-auto">
+            <h3 class="text-3xl sm:text-4xl lg:text-5xl font-black text-amber-400 mb-2 text-center drop-shadow-md">스마트폰 카메라로 스캔해 주세요</h3>
+            <p class="text-slate-300 text-lg sm:text-xl mb-8 text-center">본당 현장에 참석하신 성도님들만 투표하실 수 있습니다.</p>
             
-            <!-- 🌟 QR코드가 안정적으로 그려질 전용 컨테이너 -->
-            <div id="qrcode-container" class="bg-white p-5 rounded-3xl shadow-2xl mb-10 flex items-center justify-center"></div>
+            <!-- 🌟 QR코드 컨테이너 (중앙 정렬) -->
+            <div id="qrcode-container" class="bg-white p-5 rounded-3xl shadow-2xl mb-6 flex items-center justify-center transform hover:scale-105 transition"></div>
+
+            <!-- [수정] 심플하고 직관적인 터치 안내 문구 (QR 바로 아래 배치) -->
+            <div class="bg-slate-800 border border-slate-600 px-6 py-4 rounded-2xl shadow-lg max-w-md w-full text-center mb-10 animate-bounce-slow">
+                <p class="text-white text-lg sm:text-xl font-bold">
+                    화면에 나타나는 <span class="text-yellow-400 font-black">노란색 주소(링크)</span>를<br>
+                    <span class="underline decoration-yellow-400 decoration-2">터치해 주셔야</span> 투표소로 이동합니다.
+                </p>
+            </div>
+
+            <!-- 보안 투표 PIN 안내 영역 -->
+            <div id="proj-pin-display-container" class="hidden flex-col items-center bg-red-600/20 border-2 border-red-500 rounded-3xl p-6 sm:p-8 shadow-2xl max-w-md w-full">
+                <p class="text-red-300 text-base sm:text-lg font-bold mb-1">🔒 현장 투표 제출용 인증 코드 (PIN)</p>
+                <p class="text-white text-6xl sm:text-7xl font-black text-center tracking-[0.2em] pl-[0.2em]" id="proj-big-pin">0000</p>
+                <p class="text-red-200 text-xs sm:text-sm mt-3 text-center">제출 버튼 위 빈칸에 위 4자리 숫자를 입력해 주십시오.</p>
+            </div>
+        </div>
 
             <div id="proj-pin-display-container" class="hidden flex-col items-center bg-red-600/20 border-2 border-red-500 rounded-3xl p-6 sm:p-8 shadow-2xl max-w-md w-full">
                 <p class="text-red-300 text-base sm:text-lg font-bold mb-1">🔒 현장 투표 제출용 인증 코드 (PIN)</p>
@@ -534,22 +559,40 @@
             const currentUrl = window.location.href.split('?')[0] + "?guest=true";
             new QRCode(container, {
                 text: currentUrl,
-                width: 256,
-                height: 256,
+                width: 450,
+                height: 450,
                 colorDark : "#000000",
                 colorLight : "#ffffff",
                 correctLevel : QRCode.CorrectLevel.H 
             });
         }
 
-        if(openProjectorBtn) {
+       if(openProjectorBtn) {
             openProjectorBtn.addEventListener('click', () => {
                 projectorModal.classList.remove('hidden');
                 generateQRCode(); 
                 if(isPinModeActive) switchProjectorView('qrpin');
+                // [신규] 기기 뒤로가기 시 페이지 이탈을 막기 위한 가짜 히스토리 주입
+                history.pushState({ modalOpen: true }, null, "");
             });
         }
-        if(closeProjectorBtn) closeProjectorBtn.addEventListener('click', () => projectorModal.classList.add('hidden'));
+        
+        if(closeProjectorBtn) {
+            closeProjectorBtn.addEventListener('click', () => {
+                projectorModal.classList.add('hidden');
+                // 닫기 버튼 클릭 시 히스토리 동기화
+                if(history.state && history.state.modalOpen) {
+                    history.back();
+                }
+            });
+        }
+
+        // [신규] 스마트폰/브라우저의 실제 뒤로가기 버튼 감지 이벤트
+        window.addEventListener('popstate', (e) => {
+            if (!projectorModal.classList.contains('hidden')) {
+                projectorModal.classList.add('hidden'); // 뒤로가기 시 전광판만 닫음
+            }
+        });
 
         window.switchProjectorView = function(viewName) {
             currentProjView = viewName;
@@ -718,35 +761,49 @@
         };
 
        window.resetVotersForTesting = async function() {
-            const confirmText = prompt("⚠️ [긴급 경고] 현재 라운드의 모든 성도 투표 기록, 수기 입력 표, 총 투표자 기준이 '0'으로 영구 삭제됩니다!\n\n실수 방지를 위해 정말 초기화하시려면 아래 빈칸에 '초기화'라고 정확히 입력해 주십시오.");
+            const confirmText = prompt("⚠️ [긴급 경고] 모든 선거 데이터(1차 및 2차 결선 기록)가 완전히 삭제되며, 최초 1차 투표 전 상태로 롤백됩니다!\n\n실수 방지를 위해 정말 전체 초기화하시려면 아래 빈칸에 '초기화'라고 정확히 입력해 주십시오.");
             
             if (confirmText !== "초기화") {
-                alert("입력값이 일치하지 않거나 취소되었습니다.\n초기화가 안전하게 중단되었습니다.");
+                alert("입력값이 일치하지 않아 초기화가 안전하게 중단되었습니다.");
                 return; 
             }
 
             try {
-                const candidatesRef = collection(db, 'elections', globalActiveElectionId, 'candidates');
-                const candSnap = await getDocs(candidatesRef);
                 const batch = writeBatch(db);
-                candSnap.forEach(docSnap => {
+                
+                // 1. 1차 투표(마스터) 득표수 0으로 완전 초기화
+                const masterCandsSnap = await getDocs(collection(db, 'elections', MASTER_ELECTION_ID, 'candidates'));
+                masterCandsSnap.forEach(docSnap => {
                     batch.update(docSnap.ref, { voteCount: 0, manualVoteCount: 0 });
                 });
                 
-                batch.set(doc(db, 'elections', globalActiveElectionId), { totalVoters: 0 }, { merge: true });
-                if (globalActiveElectionId !== MASTER_ELECTION_ID) {
-                    batch.set(doc(db, 'elections', MASTER_ELECTION_ID), { totalVoters: 0 }, { merge: true });
-                }
+                // 2. 1차 투표 성도 참여 기록 삭제
+                const masterVotersSnap = await getDocs(collection(db, 'elections', MASTER_ELECTION_ID, 'voters'));
+                masterVotersSnap.forEach(docSnap => batch.delete(docSnap.ref));
+
+                // 3. 2차 투표(결선)가 진행 중이었다면 해당 데이터 완전 삭제
+                const round2Id = MASTER_ELECTION_ID + "_round2";
+                const round2VotersSnap = await getDocs(collection(db, 'elections', round2Id, 'voters'));
+                round2VotersSnap.forEach(docSnap => batch.delete(docSnap.ref));
+                
+                const round2CandsSnap = await getDocs(collection(db, 'elections', round2Id, 'candidates'));
+                round2CandsSnap.forEach(docSnap => batch.delete(docSnap.ref));
+
+                batch.delete(doc(db, 'elections', round2Id)); // 2차 투표함 껍데기 삭제
+
+                // 4. 선거 중앙 통제실을 1차 투표 대기 상태로 롤백
+                batch.set(doc(db, 'elections', MASTER_ELECTION_ID), { 
+                    totalVoters: 0, 
+                    currentRoundId: MASTER_ELECTION_ID, 
+                    round: 1, 
+                    status: 'ready', 
+                    activeTarget: '전체' 
+                }, { merge: true });
+
                 await batch.commit();
 
-                const votersSnap = await getDocs(collection(db, 'elections', globalActiveElectionId, 'voters'));
-                const voterBatch = writeBatch(db);
-                votersSnap.forEach(docSnap => {
-                    voterBatch.delete(docSnap.ref);
-                });
-                await voterBatch.commit();
-
                 selectedVoteIds.clear();
+                window.currentUserHasVoted = false; // 내 기기의 투표 상태도 즉시 초기화
                 
                 const voterPinEl = document.getElementById('voter-pin-input');
                 if(voterPinEl) voterPinEl.value = ''; 
@@ -754,9 +811,9 @@
                 const manualTotalEl = document.getElementById('manual-total-voters');
                 if(manualTotalEl) manualTotalEl.value = '0';
 
-                alert("✅ 투표 기록과 모든 득표수(앱/수기)가 초기화되었습니다.");
+                alert("✅ 선거가 완벽하게 1차 투표 시작 전 초기 상태로 리셋되었습니다.");
             } catch(err) {
-                alert("초기화 중 오류 발생: " + err.message);
+                alert("전체 초기화 중 오류 발생: " + err.message);
             }
         };
 
@@ -934,17 +991,43 @@
             });
         }
 
-        if (addCandidateForm) {
+       if (addCandidateForm) {
             addCandidateForm.addEventListener('submit', async (e) => {
                 e.preventDefault(); 
                 const name = candidateNameInput.value.trim();
                 const position = candidatePositionSelect.value;
                 const file = candidatePhotoFile.files[0];
                 
+                // [신규] 입력된 성별 값을 가져옵니다.
+                const genderEl = document.getElementById('candidate-gender');
+                const gender = genderEl ? genderEl.value : 'male';
+                
                 if (!name || !position) return alert("후보자 성명과 직책을 확인해주세요.");
 
                 try {
-                    let photoUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80"; 
+                    // 남성 기본 프로필 사진들
+                    const malePhotos = [
+                        "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&q=80",
+                        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=300&q=80",
+                        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80"
+                    ];
+                    
+                    // 여성 기본 프로필 사진들
+                    const femalePhotos = [
+                        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80",
+                        "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80",
+                        "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=300&q=80"
+                    ];
+                    
+                    // 선택된 성별에 따라 해당 배열에서 무작위 추출
+                    let photoUrl = "";
+                    if (gender === 'female') {
+                        photoUrl = femalePhotos[Math.floor(Math.random() * femalePhotos.length)];
+                    } else {
+                        photoUrl = malePhotos[Math.floor(Math.random() * malePhotos.length)];
+                    }
+                    
+                    // 직접 사진을 첨부했다면 그것을 최우선으로 적용
                     if (file) photoUrl = await convertFileToBase64(file);
 
                     const candidatesRef = collection(db, 'elections', globalActiveElectionId, 'candidates');
@@ -960,7 +1043,8 @@
                     candidateNameInput.value = ''; 
                     candidatePhotoFile.value = '';
                     registryMemberSelect.value = '';
-                } catch (error) { alert("후보 등록 실패"); }
+                    if (genderEl) genderEl.value = 'male'; // 등록 후 다시 남성으로 초기화
+                } catch (error) { alert("후보 등록 실패: " + error.message); }
             });
         }
 
