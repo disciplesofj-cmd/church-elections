@@ -1416,7 +1416,6 @@
 
         // 🌟 [핵심] 1차 당선순, 2차 당선순 정렬 반영
        function renderProjectorSummaryView() {
-            // [디자인 개편] 기존의 좁은 2단 카드를 풀스크린 세로 나열형으로 강제 변경
             projSummaryGrid.className = "flex flex-col w-full"; 
             projSummaryGrid.innerHTML = '';
 
@@ -1457,30 +1456,22 @@
                     emptyMsg.textContent = "아직 당선 확정된 인원이 없습니다.";
                     section.appendChild(emptyMsg);
                 } else {
-                    // 당선자들을 크게 보여줄 사진 그리드
                     const grid = document.createElement('div');
                     grid.className = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 sm:gap-8 w-full";
                     
                     electedCands.forEach(c => {
                         const roundTag = c.electedRound ? `${c.electedRound}차 ` : '';
                         const photoSrc = c.photoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80";
-                        const votes = c.electedVotes || 0;
 
                         const candCard = document.createElement('div');
                         candCard.className = "bg-gradient-to-b from-yellow-500/20 to-slate-800 border-2 border-yellow-400 rounded-3xl p-5 sm:p-6 flex flex-col items-center text-center shadow-2xl relative transform hover:scale-105 transition duration-300";
                         
+                        // [수정] 득표수를 제거하고, 큼지막한 사진과 축하 문구로만 디자인을 깔끔하게 채웠습니다.
                         candCard.innerHTML = `
                             <span class="absolute -top-4 -right-4 bg-yellow-500 text-black text-sm sm:text-base font-black px-4 py-2 rounded-full shadow-2xl animate-pulse z-10 border-4 border-slate-900">🎉 ${roundTag}당선</span>
                             <img src="${photoSrc}" alt="${c.name}" class="w-24 h-24 sm:w-32 sm:h-32 rounded-full object-cover border-4 border-yellow-400 shadow-lg mb-4">
-                            <h3 class="text-2xl sm:text-3xl font-black text-white tracking-tight mb-4">${c.name}</h3>
-                            
-                            <div class="w-full bg-slate-900/80 rounded-2xl py-3 sm:py-4 border border-yellow-500/30 shadow-inner flex flex-col items-center justify-center">
-                                <span class="text-xs sm:text-sm text-yellow-200/70 font-bold mb-1">최종 획득 표</span>
-                                <div class="flex items-baseline">
-                                    <span class="text-4xl sm:text-5xl font-black text-yellow-400 tracking-tighter">${votes}</span>
-                                    <span class="text-base sm:text-lg text-yellow-200/50 ml-1.5 font-bold">표</span>
-                                </div>
-                            </div>
+                            <h3 class="text-2xl sm:text-3xl font-black text-white tracking-tight mb-2">${c.name}</h3>
+                            <p class="text-yellow-400/80 font-bold text-sm sm:text-base">${pos.name} 당선 확정</p>
                         `;
                         grid.appendChild(candCard);
                     });
